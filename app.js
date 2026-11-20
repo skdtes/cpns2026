@@ -4195,7 +4195,6 @@ const UI = {
     document.getElementById('siswa-edit-password').value = siswa.password;
     document.getElementById('siswa-edit-nama').value = siswa.nama;
     document.getElementById('siswa-edit-kelas').value = siswa.kelas;
-    document.getElementById('siswa-edit-nisn').value = siswa.nisn || '';
     document.getElementById('siswa-edit-jk').value = siswa.jenis_kelamin || '';
     document.getElementById('siswa-edit-tempat').value = siswa.tempat_lahir || '';
     document.getElementById('siswa-edit-tgl').value = Skd.isoTgl(siswa.tanggal_lahir);
@@ -6465,9 +6464,9 @@ const Guru = {
     if (saringBlokir && data.length === 0) { cont.innerHTML = '<p class="subtitle">Tidak ada akun siswa yang diblokir' + (filterKelas ? ` di kelas "${escapeHtml_(filterKelas)}"` : '') + '.</p>'; return; }
     if (data.length === 0) { cont.innerHTML = `<p class="subtitle">Tidak ada siswa yang cocok${filterKelas ? ` di kelas "${escapeHtml_(filterKelas)}"` : ''} dengan pencarian ini.</p>`; return; }
     cont.innerHTML = (jmlBlokir ? `<p class="subtitle" style="margin-bottom:.6rem">🚫 <strong>${jmlBlokir}</strong> akun siswa sedang diblokir (tidak bisa mengikuti kuis).</p>` : '') +
-      `<table class="ledger"><thead><tr><th>Username</th><th>Password</th><th>Nama</th><th>NISN</th><th>Kelas</th><th>Status</th><th></th></tr></thead><tbody>` +
+      `<table class="ledger"><thead><tr><th>Username</th><th>Password</th><th>Nama</th><th>Kelas</th><th>Status</th><th></th></tr></thead><tbody>` +
       data.map(s => `<tr>
-        <td>${escapeHtml_(s.username)}</td><td>${escapeHtml_(s.password)}</td><td>${escapeHtml_(s.nama)}</td><td>${escapeHtml_(s.nisn || '')}</td><td>${escapeHtml_(s.kelas)}</td>
+        <td>${escapeHtml_(s.username)}</td><td>${escapeHtml_(s.password)}</td><td>${escapeHtml_(s.nama)}</td><td>${escapeHtml_(s.kelas)}</td>
         <td><span class="badge ${s.online ? 'ok' : 'no'}">${s.online ? 'Ada sesi aktif' : 'Tidak ada sesi'}</span>
           ${s.blokir ? `<br><span class="badge no" title="${escapeHtml_(s.blokirAlasan || 'Tanpa alasan')}">🚫 Diblokir</span>${s.blokirAlasan ? `<div style="font-size:.78rem;color:var(--c-muted);margin-top:.2rem">${escapeHtml_(s.blokirAlasan)}</div>` : ''}` : ''}</td>
         <td class="aksi">
@@ -6527,7 +6526,6 @@ const Guru = {
       password: document.getElementById('siswa-edit-password').value.trim(),
       nama: document.getElementById('siswa-edit-nama').value.trim(),
       kelas: document.getElementById('siswa-edit-kelas').value.trim(),
-      nisn: document.getElementById('siswa-edit-nisn').value.trim(),
       jenis_kelamin: document.getElementById('siswa-edit-jk').value,
       tempat_lahir: document.getElementById('siswa-edit-tempat').value.trim(),
       tanggal_lahir: Skd.isoTgl(document.getElementById('siswa-edit-tgl').value)
@@ -6694,10 +6692,10 @@ const Guru = {
       const username = usernameManual || buatUsernameDariNama(nama, (state.guru.daftarSiswa || []).map(s => s.username));
       const password = document.getElementById('siswa-manual-password').value.trim() || buatPasswordAcak();
       const kelas = document.getElementById('siswa-manual-kelas').value.trim();
-      const res = await api('importSiswa', { siswaList: JSON.stringify([{ username, password, nama, kelas, nisn: document.getElementById('siswa-manual-nisn').value.trim(), jenis_kelamin: document.getElementById('siswa-manual-jk').value, tempat_lahir: document.getElementById('siswa-manual-tempat').value.trim(), tanggal_lahir: Skd.isoTgl(document.getElementById('siswa-manual-tgl').value) }]) });
+      const res = await api('importSiswa', { siswaList: JSON.stringify([{ username, password, nama, kelas, jenis_kelamin: document.getElementById('siswa-manual-jk').value, tempat_lahir: document.getElementById('siswa-manual-tempat').value.trim(), tanggal_lahir: Skd.isoTgl(document.getElementById('siswa-manual-tgl').value) }]) });
       if (res.ok) {
         toast('Siswa "' + nama + '" berhasil ditambahkan (username: ' + username + ', password: ' + password + ').', 'success');
-        ['siswa-manual-username', 'siswa-manual-password', 'siswa-manual-nama', 'siswa-manual-nisn', 'siswa-manual-tempat', 'siswa-manual-tgl'].forEach(id => document.getElementById(id).value = '');
+        ['siswa-manual-username', 'siswa-manual-password', 'siswa-manual-nama', 'siswa-manual-tempat', 'siswa-manual-tgl'].forEach(id => document.getElementById(id).value = '');
         Guru.muatDaftarSiswa();
       } else toast('Gagal menambahkan siswa: ' + res.error, 'error');
     });

@@ -203,8 +203,7 @@ const Skd = (function () {
     const inp = $('skd-captcha-input'); if (inp) inp.value = '';
   }
   function captchaBenar() {
-    const box = $('skd-captcha-box'); if (!box || box.classList.contains('hidden')) return true;
-    return String($('skd-captcha-input').value || '').trim().toUpperCase() === captchaKode && captchaKode !== '';
+    return true; // captcha dihapus dari halaman login (kotak captcha tidak ada lagi)
   }
   const _login = Auth.login;
   Auth.login = function (ev) {
@@ -550,7 +549,7 @@ const Skd = (function () {
       let qr = ''; try { qr = qrSvg(base + '#u=' + encodeURIComponent(s.username) + '&p=' + encodeURIComponent(s.password)); } catch (e) { qr = ''; }
       const ttl = [s.tempat_lahir, tglPanjang(s.tanggal_lahir)].filter(Boolean).join(' / ');
       const jk = /^l|pria|laki/i.test(String(s.jenis_kelamin || '')) ? 'Pria' : (/^p|wanita|perempuan/i.test(String(s.jenis_kelamin || '')) ? 'Wanita' : '');
-      const baris = [['Penyelenggara', org], ['Nama', s.nama, 'b'], ['NISN / NIK', s.nisn], ['Tempat / Tanggal Lahir', ttl], ['Jenis Kelamin', jk], ['Nomor Peserta', s.username, 'nomor'], ['Kelas / Kelompok', s.kelas], ['Lokasi Ujian', lok]];
+      const baris = [['Penyelenggara', org], ['Nama', s.nama, 'b'], ['Tempat / Tanggal Lahir', ttl], ['Jenis Kelamin', jk], ['Nomor Peserta', s.username, 'nomor'], ['Kelas / Kelompok', s.kelas], ['Lokasi Ujian', lok]];
       return `<div class="kp-card"><div class="kp-head"><img class="kp-logo" src="icons/bkn.png" alt=""><div class="kp-judul"><b>${esc(j1)}</b><span>${esc(j2)}</span></div><div class="kp-bar">${barcode39(s.username)}<small>${esc(s.username)}</small></div></div>
         <div class="kp-body"><div class="kp-foto"><span>Pas Foto<br>3 x 4</span></div><table class="kp-tb">${baris.map(r => `<tr><td class="k">${r[0]}</td><td class="v ${r[2] || ''}">${esc(r[1] || '')}</td></tr>`).join('')}</table></div>
         <div class="kp-bawah"><div class="kp-qr">${qr}<small>Pindai untuk login</small></div><table class="kp-pin"><tr><td class="k">PIN UJIAN (Password)</td><td class="pin">${esc(s.password || '')}</td></tr><tr><td class="k">Tanggal Simulasi</td><td class="isi">&nbsp;</td></tr></table></div>
@@ -565,7 +564,7 @@ const Skd = (function () {
   // ---------------- impor data siswa (sesuai Kartu Login) ----------------
   const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
   const KOL = {
-    nama: ['nama', 'namapeserta', 'namalengkap', 'namasiswa'], nisn: ['nisn', 'nis'], tempat: ['tempatlahir', 'tempat'],
+    nama: ['nama', 'namapeserta', 'namalengkap', 'namasiswa'], tempat: ['tempatlahir', 'tempat'],
     tgl: ['tanggallahir', 'tgllahir', 'tanggal'], ttl: ['tempattanggallahir', 'tempattgllahir', 'ttl'],
     username: ['username', 'user', 'namapengguna'], password: ['password', 'sandi', 'katasandi', 'pass'],
     kelas: ['kelas', 'rombel'], jk: ['jeniskelamin', 'jk', 'kelamin', 'lp']
@@ -578,9 +577,9 @@ const Skd = (function () {
   const teks = (v) => (v === null || v === undefined) ? '' : String(v).trim();
 
   Guru.unduhTemplateSiswa = function () {
-    unduhXlsx('template-data-siswa.xlsx', ['Nama Peserta', 'NISN', 'Tempat Lahir', 'Tanggal Lahir', 'Jenis Kelamin', 'Kelas', 'Username', 'Password'], [
-      ['Komang Rendi Mahardika', '0105952278', 'Banjarasem', '01 Oktober 2010', 'L', '9A', 'TP2206005700018', '187377*'],
-      ['Ayu Lestari', '0112345678', 'Singaraja', '12/03/2011', 'P', '9A', '', '']
+    unduhXlsx('template-data-siswa.xlsx', ['Nama Peserta', 'Tempat Lahir', 'Tanggal Lahir', 'Jenis Kelamin', 'Kelas', 'Username', 'Password'], [
+      ['Komang Rendi Mahardika', 'Banjarasem', '01 Oktober 2010', 'L', '9A', 'TP2206005700018', '187377*'],
+      ['Ayu Lestari', 'Singaraja', '12/03/2011', 'P', '9A', '', '']
     ]);
   };
   Guru.importSiswaDariFile = function (ev) {
@@ -594,18 +593,17 @@ const Skd = (function () {
       let hi = rows.findIndex(r => petaKolom(r).nama !== undefined), P;
       if (hi >= 0) P = petaKolom(rows[hi]); else { hi = 0; P = { nama: 0, kelas: 1, username: 2, password: 3 }; }
       const data = rows.slice(hi + 1).filter(r => r.some(c => teks(c)) && teks(r[P.nama]));
-      const ada = {}, adaNisn = {}; (state.guru.daftarSiswa || []).forEach(s => { ada[String(s.username).trim().toLowerCase()] = s; if (s.nisn) adaNisn[String(s.nisn)] = s; });
+      const ada = {}; (state.guru.daftarSiswa || []).forEach(s => { ada[String(s.username).trim().toLowerCase()] = s; });
       const terpakai = Object.keys(ada); let nUser = 0, nPass = 0;
       const baru = [], ubah = [];
       data.forEach(r => {
         const nama = teks(r[P.nama]); let tempat = P.tempat !== undefined ? teks(r[P.tempat]) : '', tgl = P.tgl !== undefined ? r[P.tgl] : '';
         if (P.ttl !== undefined && teks(r[P.ttl])) { const t = teks(r[P.ttl]), k = t.indexOf(','); if (k > 0) { tempat = tempat || t.slice(0, k).trim(); tgl = tgl || t.slice(k + 1).trim(); } else tempat = tempat || t; }
-        let nisn = P.nisn !== undefined ? teks(r[P.nisn]) : ''; if (/^\d{1,9}$/.test(nisn)) nisn = nisn.padStart(10, '0');
         let username = P.username !== undefined ? teks(r[P.username]) : '';
         let password = P.password !== undefined ? teks(r[P.password]) : '';
-        const rec = { nama, nisn, tempat_lahir: tempat, tanggal_lahir: isoTgl(tgl), jenis_kelamin: P.jk !== undefined ? normJk(r[P.jk]) : '' };
+        const rec = { nama, tempat_lahir: tempat, tanggal_lahir: isoTgl(tgl), jenis_kelamin: P.jk !== undefined ? normJk(r[P.jk]) : '' };
         const kelas = kelasOverride || (P.kelas !== undefined ? teks(r[P.kelas]) : ''); if (kelas) rec.kelas = kelas;
-        const lama = (username && ada[username.toLowerCase()]) || (nisn && adaNisn[nisn]) || null;
+        const lama = (username && ada[username.toLowerCase()]) || null;
         if (lama) { if (password) rec.password = password; if (username) rec.username = username; ubah.push(Object.assign({}, rec, { id: lama.id })); return; }
         if (!username) { username = buatUsernameDariNama(nama, terpakai); nUser++; }
         terpakai.push(username.toLowerCase());
@@ -636,7 +634,7 @@ const Skd = (function () {
       const q = new URLSearchParams(h.slice(1));
       if (q.get('u')) { $('login-username').value = q.get('u'); $('login-password').value = q.get('p') || ''; }
       try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* abaikan */ }
-      setTimeout(() => { const b = $('skd-captcha-input'); if (b) b.focus(); }, 50);
+      setTimeout(() => { const b = $('btn-login-submit'); if (b) b.focus(); }, 50);
     }
   });
 

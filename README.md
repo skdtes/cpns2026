@@ -30,7 +30,7 @@ peserta meniru CAT BKN. Dibangun di atas mesin CBT sebelumnya (GitHub Pages + Go
 * Ujian lama tanpa `ambang_json` tetap memakai nilai persen (kompatibel).
 
 ## Alur peserta (mirip CAT BKN)
-Login (username, password, **captcha**) → **Daftar Simulasi** → **Info Simulasi** (materi, durasi, passing grade, perhatian penting, input token) →
+Login (username, password) → **Daftar Simulasi** → **Info Simulasi** (materi, durasi, passing grade, perhatian penting, input token) →
 konfirmasi → **Ujian** (navigasi nomor merah/hijau/kuning, "Simpan dan Lanjutkan", "Lewatkan", "Ragu-ragu", ukuran font) →
 **Hasil**: skor TWK/TIU/TKP + ambang batas, skor total, status memenuhi/belum, **analisis materi**, grafik perkembangan,
 detail jawaban + pembahasan, dan **Unduh Sertifikat**. **Dashboard** peserta: riwayat simulasi, grafik garis naik/turun, analisis materi gabungan.

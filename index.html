@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
-<link rel="stylesheet" href="skd.css?v=70">
+<link rel="stylesheet" href="skd.css?v=71">
 <!-- Font Awesome: ikon sidebar & tombol (gaya dashboard modern) -->
 <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
 <!-- KaTeX: render persamaan matematika (LaTeX) di dalam soal -->
@@ -63,10 +63,6 @@
       <div class="skd-ig"><input type="text" id="login-username" placeholder="Masukkan username atau email" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required></div>
       <label class="skd-lbl" for="login-password"><i class="fa-solid fa-lock"></i> Password</label>
       <div class="skd-ig"><input type="password" id="login-password" placeholder="Masukkan password" autocomplete="current-password" required><button type="button" class="skd-eye" tabindex="-1" onclick="Skd.toggleSandi(this)" aria-label="Tampilkan password"><i class="fa-solid fa-eye"></i></button></div>
-      <div id="skd-captcha-box">
-        <label class="skd-lbl" for="skd-captcha-input"><i class="fa-solid fa-shield-halved"></i> Captcha</label>
-        <div class="skd-captcha-row"><canvas id="skd-captcha-canvas" width="150" height="48" aria-label="Captcha"></canvas><button type="button" class="skd-btn skd-btn-primary skd-btn-sq" onclick="Skd.buatCaptcha()" title="Muat ulang captcha" aria-label="Muat ulang captcha"><i class="fa-solid fa-rotate"></i></button><input type="text" id="skd-captcha-input" placeholder="MASUKKAN CAPTCHA" autocomplete="off" autocapitalize="characters" maxlength="6"></div>
-      </div>
       <button type="submit" id="btn-login-submit" class="skd-btn skd-btn-primary skd-btn-block"><i class="fa-solid fa-right-to-bracket"></i> MASUK</button>
       <div id="login-error" class="skd-err" role="alert"></div>
       <p id="login-mode-status" class="skd-modestatus"></p>
@@ -556,7 +552,6 @@
           </div>
         </div>
         <div class="row">
-          <div class="field"><label>NISN</label><input type="text" id="siswa-manual-nisn" inputmode="numeric" placeholder="10 digit"></div>
           <div class="field"><label>Jenis Kelamin</label><select id="siswa-manual-jk"><option value="">-</option><option value="L">Laki-Laki</option><option value="P">Perempuan</option></select></div>
           <div class="field"><label>Tempat Lahir</label><input type="text" id="siswa-manual-tempat"></div>
           <div class="field"><label>Tanggal Lahir</label><input type="date" id="siswa-manual-tgl"></div>
@@ -575,7 +570,7 @@
           </div>
         </div>
         <p class="subtitle" style="margin-top:-.6rem">
-          Kolom dibaca dari <strong>judul kolom</strong> (urutan bebas), sesuai Kartu Login: <strong>Nama Peserta, NISN, Tempat Lahir, Tanggal Lahir</strong>
+          Kolom dibaca dari <strong>judul kolom</strong> (urutan bebas), sesuai Kartu Login: <strong>Nama Peserta, Tempat Lahir, Tanggal Lahir</strong>
           (atau satu kolom <em>Tempat, Tanggal Lahir</em>), <strong>Username, Password</strong>, plus <strong>Kelas</strong> dan <strong>Jenis Kelamin</strong> (L/P) bila ada.
           Username/password yang sudah ada di file dipakai apa adanya (tidak diubah); bila kosong dibuatkan otomatis. Siswa dengan username yang sama
           diperbarui datanya, bukan digandakan. File lama berformat nama, kelas, username, password tetap bisa diimpor.
@@ -1037,7 +1032,6 @@
       <div class="field"><label>Kelas</label><input type="text" id="siswa-edit-kelas" list="daftar-kelas-siswa"></div>
     </div>
     <div class="row">
-      <div class="field"><label>NISN</label><input type="text" id="siswa-edit-nisn" inputmode="numeric"></div>
       <div class="field"><label>Jenis Kelamin</label><select id="siswa-edit-jk"><option value="">-</option><option value="L">Laki-Laki</option><option value="P">Perempuan</option></select></div>
     </div>
     <div class="row">
@@ -1380,7 +1374,7 @@
 </div>
 
 <script src="config.js"></script>
-<script src="app.js?v=70"></script>
-<script src="skd.js?v=70"></script>
+<script src="app.js?v=71"></script>
+<script src="skd.js?v=71"></script>
 </body>
 </html>

@@ -203,3 +203,14 @@ section.skd-card { padding: 22px 24px; } .skd-card-flat { background: #f8fafd; b
   .kp-k2 .kp-card { margin-bottom: 12mm; } .kp-k4 { grid-template-columns: 1fr 1fr; gap: 6mm; } .kp-k4 .kp-card { margin: 0; font-size: 9.5px; } .kp-k4 .kp-foto { width: 70px; } .kp-k4 .kp-tb td.v.nomor { font-size: 13px; } .kp-k4 .kp-bar { width: 110px; } .kp-k4 .kp-qr svg { width: 70px; height: 70px; } .kp-k4 .kp-pin td.pin { font-size: 14px; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* Tombol mata (tampilkan password): proporsional & tidak ikut gaya tombol global (hover/aktif) */
+.skd-page .skd-ig input[type="password"], .skd-page .skd-ig input[type="text"] { padding-right: 52px; }
+.skd-page .skd-ig .skd-eye, .skd-page .skd-ig .skd-eye:hover, .skd-page .skd-ig .skd-eye:active, .skd-page .skd-ig .skd-eye:focus {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%) !important;
+  width: 36px; height: 36px; min-width: 0; padding: 0; margin: 0;
+  display: inline-grid; place-items: center; border: 0; border-radius: 8px;
+  background: transparent; box-shadow: none; filter: none; color: #5f6b7a; font-size: 16px; line-height: 1;
+}
+.skd-page .skd-ig .skd-eye:hover { background: rgba(31, 78, 121, .10); color: #1d3a73; }
+.skd-page .skd-ig .skd-eye:focus-visible { outline: 2px solid #4a78c9; outline-offset: 1px; }
