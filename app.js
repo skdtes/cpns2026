@@ -928,7 +928,39 @@ const SKD_TEMPLATE_ROWS_ = [
   ['TIU', 'Pola Bilangan', 'PG', 'Perhatikan tabel berikut! (pada file Word: tempel tabel di sel ini) Nilai yang tepat untuk menggantikan tanda ? adalah ....', '', '12', '13', '14', '15', '16', 'C', '5', 'Sedang', 'Tulis langkah penyelesaian di sini.'],
   ['TIU', 'Kecukupan Data', 'Kecukupan', 'Berapakah sisa target produksi? PERNYATAAN (1): Target Pabrik Y adalah 900 unit. PERNYATAAN (2): Total target kedua pabrik 1.900 unit. (Opsi A–E tidak perlu diisi)', '', '', '', '', '', '', 'C', '5', 'Sulit', 'Kedua pernyataan bersama-sama cukup.'],
   ['TKP', 'Pelayanan Publik', 'TKP', 'Seorang warga marah karena antrean layanan panjang. Sikap Anda adalah ....', '', 'Meminta maaf dan menjelaskan alur layanan', 'Mengabaikan keluhan tersebut', 'Menyuruhnya pulang dan datang lagi', 'Membalas dengan nada tinggi', 'Mencarikan petugas lain yang lebih senior', '5,1,2,1,4', '5', 'Sedang', 'Kolom Kunci TKP berisi skor tiap opsi A..E (1–5).'],
+  ['TIU', 'Aljabar & Pecahan', 'PG', 'Nilai dari $\\frac{1}{2} + \\frac{1}{3}$ adalah ....', '', '$\\frac{2}{5}$', '$\\frac{5}{6}$', '$\\frac{1}{6}$', '$\\frac{3}{5}$', '$\\frac{2}{3}$', 'B', '5', 'Sedang', 'Samakan penyebut: $\\frac{3}{6} + \\frac{2}{6} = \\frac{5}{6}$.'],
+  ['TIU', 'Aljabar & Pecahan', 'PG', 'Jika $x^{2} - 5x + 6 = 0$, maka nilai $x$ yang memenuhi adalah ....', '', '$x = 1$ atau $x = 6$', '$x = 2$ atau $x = 3$', '$x = -2$ atau $x = -3$', '$x = 2$ atau $x = -3$', '$x = 5$ atau $x = 6$', 'B', '5', 'Sedang', '$(x-2)(x-3)=0$ sehingga $x=2$ atau $x=3$.'],
   ['', '', '', '(tambahkan baris baru di bawah sini, ikuti pola di atas)', '', '', '', '', '', '', '', '', '', '']
+];
+// Lembar "Petunjuk Rumus" pada template Excel: cara menulis rumus matematika agar tampil rapi di layar ujian.
+const PETUNJUK_RUMUS_ROWS_ = [
+  ['PETUNJUK MENULIS RUMUS MATEMATIKA', '', ''],
+  ['Apit rumus dengan tanda $ di awal dan akhir, lalu tulis dalam format LaTeX. Rumus boleh dicampur dengan kalimat biasa dalam satu sel (Pertanyaan, Opsi A–E, maupun Pembahasan).', '', ''],
+  ['Pada file Word (.docx) cukup pakai Insert > Equation; rumusnya otomatis dikonversi saat impor.', '', ''],
+  ['', '', ''],
+  ['Yang ingin ditulis', 'Ketik di sel', 'Tampil sebagai'],
+  ['Pecahan', '$\\frac{3}{4}$', 'tiga per empat (pembilang di atas, penyebut di bawah)'],
+  ['Pangkat', '$x^{2}$   $2^{10}$   $10^{-3}$', 'x kuadrat, 2 pangkat 10, 10 pangkat min 3'],
+  ['Indeks / subskrip', '$a_{n}$   $U_{10}$', 'a indeks n, U indeks 10'],
+  ['Akar kuadrat', '$\\sqrt{49}$', 'akar 49'],
+  ['Akar pangkat n', '$\\sqrt[3]{27}$', 'akar pangkat tiga dari 27'],
+  ['Kali dan bagi', '$3 \\times 4$   $8 \\div 2$', '3 × 4 dan 8 ÷ 2'],
+  ['Pertidaksamaan', '$x \\leq 5$   $x \\geq 5$   $x \\neq 0$', 'x ≤ 5, x ≥ 5, x ≠ 0'],
+  ['Persen', '$25\\%$', '25% (tanda % wajib ditulis \\%)'],
+  ['Derajat', '$90^{\\circ}$', '90 derajat'],
+  ['Huruf Yunani', '$\\pi$   $\\alpha$   $\\theta$', 'π, α, θ'],
+  ['Jumlah / sigma', '$\\sum_{i=1}^{n} i$', 'penjumlahan i dari 1 sampai n'],
+  ['Logaritma', '$\\log_{2} 8$', 'log basis 2 dari 8'],
+  ['Trigonometri', '$\\sin 30^{\\circ}$', 'sin 30 derajat'],
+  ['Teks di dalam rumus', '$\\text{kecepatan} = \\frac{s}{t}$', 'kecepatan sama dengan s per t'],
+  ['Rumus di baris sendiri (besar, rata tengah)', '$$x = \\frac{-b \\pm \\sqrt{b^{2}-4ac}}{2a}$$', 'pakai dua tanda $ di awal dan akhir'],
+  ['Campur dengan kalimat', 'Nilai dari $\\frac{1}{2} + \\frac{1}{3}$ adalah ....', 'kalimat biasa dengan pecahan di tengahnya'],
+  ['', '', ''],
+  ['Catatan penting', '', ''],
+  ['1. Jangan lupa tanda $ pembuka DAN penutup. Tanpa itu rumus tampil sebagai teks mentah.', '', ''],
+  ['2. Jangan memakai tanda $ untuk mata uang; tulis "Rp" (mis. Rp5.000).', '', ''],
+  ['3. Pangkat atau indeks lebih dari satu karakter wajib diberi kurung kurawal, mis. $x^{10}$ (bukan $x^10$).', '', ''],
+  ['4. Setelah impor, buka Bank Soal > Pratinjau untuk memastikan semua rumus tampil rapi.', '', '']
 ];
 // Lima pilihan baku soal Kecukupan Data (TIU) pada SKD CPNS.
 const OPSI_KECUKUPAN_DATA_ = [
@@ -1075,7 +1107,7 @@ function kunciHeader_(h) { return String(h || '').trim().toLowerCase().replace(/
 // dianggap opsi A -- supaya guru pasti tahu & bisa memperbaikinya sebelum
 // dipakai siswa (lihat catatan panjang di hurufKunciKeIndeks_ di atas).
 function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGambar, peringatan) {
-  const ambil = (nama) => { const i = headerIdx[nama]; return i == null ? '' : String(nilai[i] == null ? '' : nilai[i]).trim(); };
+  const ambil = (nama) => { const i = headerIdx[nama]; return i == null ? '' : amankanRumusTeks_(String(nilai[i] == null ? '' : nilai[i]).trim()); };
   const pertanyaan = ambil('pertanyaan');
   if (!pertanyaan) return null;
   // Baris petunjuk bawaan template ("(tambahkan baris baru di bawah sini...)") bukan soal.
@@ -1761,6 +1793,48 @@ function toast(msg, jenis) {
 // diklik, dialog menumpuk). Dengan disuntik dari app.js, dialog dijamin tampil di tengah layar & menutupi halaman.
 // ----------------------------------------------------------------------------
 const VERSI_APLIKASI = '43';
+const CSS_RUMUS = `
+/* ===== Rumus matematika (KaTeX) di layar ujian, pratinjau, hasil & pembahasan ===== */
+.question-card .katex, .skd-pertanyaan .katex, .skd-opsi-t .katex, .dj-card .katex, .dj-pembahasan .katex { font-size: 1.12em; }
+.katex-display { margin: .7em 0; padding: .15em 0; overflow-x: auto; overflow-y: hidden; max-width: 100%; -webkit-overflow-scrolling: touch; }
+.katex-display > .katex { white-space: nowrap; max-width: 100%; }
+.skd-opsi-t, .skd-pertanyaan, .pertanyaan { overflow-wrap: anywhere; }
+.skd-opsi-t .katex-display { margin: .3em 0; text-align: left; }
+.skd-opsi-t .katex-display > .katex { text-align: left; }
+.katex-error { color: #b91c1c; font-family: monospace; font-size: .9em; }
+@media (max-width: 640px) { .katex-display { margin: .5em 0; } .skd-pertanyaan .katex, .question-card .katex { font-size: 1.05em; } }
+/* ===== Keterangan jumlah soal ujian ===== */
+.skd-kurang-info { margin: 0 0 .5rem; font-size: .84rem; }
+.skd-kurang-banner { padding: .55rem .8rem; border-radius: 8px; margin-bottom: .45rem; line-height: 1.45; }
+.skd-kurang-banner.warn { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+.skd-kurang-banner.ok { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
+.skd-kurang-tbl { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.skd-kurang-tbl th, .skd-kurang-tbl td { padding: .25rem .5rem; border-bottom: 1px solid var(--c-line); text-align: left; }
+.skd-kurang-tbl tr.kurang td { color: #b91c1c; font-weight: 600; }
+.skd-kurang-tbl tr.sedang td { color: #b45309; font-weight: 600; }
+.skd-kurang-tbl tr.ok td:last-child { color: #15803d; }
+.skd-kurang-tbl tr.lebih td:last-child { color: #1d4ed8; }
+.kom-baris { white-space: nowrap; line-height: 1.5; }
+.kom-baris.ok { color: #15803d; }
+.kom-baris.kurang, .kom-total.kurang { color: #b91c1c; font-weight: 600; white-space: normal; }
+.kom-total { margin-top: .2rem; padding-top: .2rem; border-top: 1px dashed var(--c-line); font-weight: 600; }
+.kom-total.ok { color: #15803d; }
+/* ===== Dialog rumus ===== */
+.rumus-bg { z-index: 1300; }
+.rumus-modal { max-width: 720px; }
+.rumus-palet { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .7rem; }
+.rumus-grup { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
+.rumus-grup > span { font-size: .72rem; font-weight: 600; color: var(--c-muted); min-width: 92px; text-transform: uppercase; letter-spacing: .03em; }
+.rumus-chip { background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-line); padding: .28rem .6rem; min-width: 2.2rem; font-size: .95rem; line-height: 1.2; border-radius: 6px; cursor: pointer; }
+.rumus-chip:hover { border-color: var(--c-secondary); background: var(--c-bg); }
+.rumus-lbl { display: block; font-size: .8rem; font-weight: 600; margin: .5rem 0 .25rem; }
+#rumus-tex { width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95rem; resize: vertical; }
+.rumus-blok { display: flex; align-items: center; gap: .45rem; font-size: .82rem; font-weight: 400; margin-top: .4rem; }
+.rumus-blok input { width: auto; margin: 0; }
+.rumus-pratinjau { min-height: 3.2rem; padding: .7rem .9rem; border: 1px dashed var(--c-line); border-radius: 8px; background: var(--c-bg); overflow-x: auto; font-size: 1.15rem; }
+.rumus-kosong { color: var(--c-muted); font-size: .85rem; }
+.rumus-galat { color: #b91c1c; font-size: .8rem; min-height: 1.1rem; margin-top: .3rem; }
+`;
 const CSS_SEGAR = `
 /* Tombol "Segarkan" di halaman portal guru (Rekap Nilai, Log Pelanggaran, dll.) */
 .btn-segarkan { display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; }
@@ -1947,7 +2021,7 @@ function injectGayaDialog_() {
   if (document.getElementById('dlg-gaya')) return;
   const el = document.createElement('style');
   el.id = 'dlg-gaya';
-  el.textContent = CSS_DIALOG + CSS_SEGAR + CSS_FSBUKTI + CSS_SHEET + CSS_KAMERA + CSS_GALERI + CSS_KUNCI;
+  el.textContent = CSS_DIALOG + CSS_SEGAR + CSS_RUMUS + CSS_FSBUKTI + CSS_SHEET + CSS_KAMERA + CSS_GALERI + CSS_KUNCI;
   document.head.appendChild(el);
 }
 injectGayaDialog_();
@@ -2322,12 +2396,54 @@ function richTeksKosong_(html) {
   return !tpl.content.textContent.trim();
 }
 
+// ----------------------------------------------------------------------------
+// RUMUS MATEMATIKA (KaTeX)
+// Penanda yang dikenali di soal/opsi/pembahasan:
+//   $ ... $   atau  \( ... \)   -> rumus di tengah kalimat
+//   $$ ... $$ atau  \[ ... \]   -> rumus di baris sendiri (besar, rata tengah)
+// KaTeX dibundel lokal (vendor/katex). Bila skrip KaTeX belum selesai dimuat saat soal tampil,
+// elemen dicatat lalu dirender otomatis begitu KaTeX siap (dulu rumus tertinggal sbg teks mentah "$...$").
+// ----------------------------------------------------------------------------
+const OPSI_RUMUS_ = {
+  delimiters: [
+    { left: '$$', right: '$$', display: true },
+    { left: '\\[', right: '\\]', display: true },
+    { left: '\\(', right: '\\)', display: false },
+    { left: '$', right: '$', display: false }
+  ],
+  throwOnError: false,
+  strict: 'ignore'
+};
+const _matikaMenunggu_ = new Set();
+let _matikaTimer_ = null;
+function katexSiap_() { return !!(window.katex && window.renderMathInElement); }
 function renderMatika(el) {
-  if (window.renderMathInElement) {
-    try {
-      renderMathInElement(el, { delimiters: [{ left: '$', right: '$', display: false }], throwOnError: false });
-    } catch (e) { /* abaikan error render */ }
+  if (!el) return;
+  if (katexSiap_()) {
+    try { renderMathInElement(el, OPSI_RUMUS_); } catch (e) { /* abaikan error render */ }
+    return;
   }
+  _matikaMenunggu_.add(el);
+  if (_matikaTimer_) return;
+  let n = 0;
+  _matikaTimer_ = setInterval(() => {
+    n++;
+    if (katexSiap_()) {
+      clearInterval(_matikaTimer_); _matikaTimer_ = null;
+      const daftar = Array.from(_matikaMenunggu_); _matikaMenunggu_.clear();
+      daftar.forEach(e => { if (e.isConnected) { try { renderMathInElement(e, OPSI_RUMUS_); } catch (x) { } } });
+    } else if (n > 120) { clearInterval(_matikaTimer_); _matikaTimer_ = null; _matikaMenunggu_.clear(); } // menyerah setelah ~30 dtk
+  }, 250);
+}
+
+// Rumus yang diketik di Excel/teks biasa: tanda < dan > di DALAM rumus (mis. $a<b$) dapat disangka tag HTML oleh
+// pendeteksi "teks kaya" sehingga rumusnya rusak. Di dalam segmen rumus, keduanya diganti \lt dan \gt (setara di KaTeX).
+const RE_SEGMEN_RUMUS_ = /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$(?!\s)[^$\n]+?\$/g;
+const RE_TAG_HTML_ADA_ = /<\/?(?:b|i|u|s|strong|em|br|span|div|p|font|sub|sup|img|ul|ol|li|table|thead|tbody|tr|td|th|strike)\b[^<>]*>/i;
+function amankanRumusTeks_(str) {
+  const t = String(str == null ? '' : str);
+  if (t.indexOf('<') < 0 && t.indexOf('>') < 0) return t;
+  return t.replace(RE_SEGMEN_RUMUS_, seg => RE_TAG_HTML_ADA_.test(seg) ? seg : seg.replace(/</g, '\\lt ').replace(/>/g, '\\gt '));
 }
 
 // Membangun HTML 1 soal (pertanyaan + gambar + opsi/kotak jawaban sesuai
@@ -3635,12 +3751,17 @@ const Auth = {
 // ----------------------------------------------------------------------------
 function rtTampilkanRumus_(el) {
   if (!el || !window.renderMathInElement) return;
-  try { renderMathInElement(el, { delimiters: [{ left: '$', right: '$', display: false }], throwOnError: false }); } catch (e) { return; }
-  el.querySelectorAll('.katex').forEach(k => { k.setAttribute('contenteditable', 'false'); k.setAttribute('title', 'Klik 2x untuk mengubah rumus'); });
+  try { renderMathInElement(el, OPSI_RUMUS_); } catch (e) { return; }
+  el.querySelectorAll('.katex, .katex-display').forEach(k => { k.setAttribute('contenteditable', 'false'); k.setAttribute('title', 'Klik 2x untuk mengubah rumus'); });
 }
 // Isi kotak editor -> HTML siap simpan (rumus yang sudah dirender dikembalikan jadi "$LaTeX$").
 function rtHtmlSerial_(el) {
   const salin = el.cloneNode(true);
+  // rumus blok ($$...$$) dikembalikan dulu, supaya tidak berubah jadi rumus sebaris
+  salin.querySelectorAll('.katex-display').forEach(d => {
+    const ann = d.querySelector('annotation[encoding="application/x-tex"]');
+    d.replaceWith(document.createTextNode(ann ? '$$' + ann.textContent + '$$' : (d.textContent || '')));
+  });
   salin.querySelectorAll('.katex').forEach(k => {
     const ann = k.querySelector('annotation[encoding="application/x-tex"]');
     k.replaceWith(document.createTextNode(ann ? '$' + ann.textContent + '$' : (k.textContent || '')));
@@ -3703,20 +3824,84 @@ const UI = {
   async rtRumus() {
     if (!UI.rtPulihkanSeleksi()) { toast('Klik dulu ke kotak Pertanyaan/Opsi yang ingin disisipi rumus.', 'error'); return; }
     const rentang = UI._rtRange, sasaran = UI._rtEditable;
-    const formula = await Dialog.input({
-      judul: 'Sisipkan Rumus', ikon: 'fa-square-root-variable',
-      pesan: 'Tulis rumus dalam format **LaTeX** (tanpa tanda $). Rumus akan tampil rapi di soal.',
-      label: 'Rumus (LaTeX)', placeholder: 'x^2 + 1 = 0', teksYa: 'Sisipkan', wajib: true, pesanWajib: 'Tulis rumusnya dulu.',
-      chips: [
-        { label: 'pecahan', nilai: '\\frac{a}{b}', sisip: true }, { label: 'pangkat', nilai: 'x^{2}', sisip: true },
-        { label: 'akar', nilai: '\\sqrt{x}', sisip: true }, { label: 'π', nilai: '\\pi', sisip: true }
-      ]
-    });
+    const hasil = await UI.dialogRumus({ judul: 'Sisipkan Rumus', teksYa: 'Sisipkan' });
     UI._rtRange = rentang; UI._rtEditable = sasaran; UI.rtPulihkanSeleksi(); // fokus berpindah ke dialog -> pulihkan posisi kursor
-    if (!formula) return;
-    try { document.execCommand('insertText', false, `$${formula}$`); } catch (e) {}
+    if (!hasil || !hasil.tex.trim()) return;
+    const tex = hasil.tex.trim();
+    try { document.execCommand('insertText', false, hasil.blok ? `$$${tex}$$` : `$${tex}$`); } catch (e) {}
     if (UI._rtEditable) rtRenderUlang_(UI._rtEditable);
     UI._rtRange = null;
+  },
+  // Dialog rumus: kotak LaTeX + PRATINJAU langsung (persis seperti tampilan di soal) + tombol simbol cepat.
+  // Mengembalikan { tex, blok } | { hapus: true } | null (batal).
+  dialogRumus(o) {
+    o = o || {};
+    const GRUP = [
+      ['Dasar', [['a⁄b', '\\frac{a}{b}'], ['x²', 'x^{2}'], ['xₙ', 'x_{n}'], ['√', '\\sqrt{x}'], ['ⁿ√', '\\sqrt[n]{x}'], ['( )', '\\left( x \\right)'], ['|x|', '\\left| x \\right|']]],
+      ['Operator', [['×', '\\times'], ['÷', '\\div'], ['±', '\\pm'], ['≤', '\\leq'], ['≥', '\\geq'], ['≠', '\\neq'], ['≈', '\\approx'], ['∞', '\\infty'], ['%', '\\%'], ['°', '^{\\circ}']]],
+      ['Huruf', [['π', '\\pi'], ['α', '\\alpha'], ['β', '\\beta'], ['θ', '\\theta'], ['Δ', '\\Delta'], ['λ', '\\lambda']]],
+      ['Fungsi', [['∑', '\\sum_{i=1}^{n}'], ['∫', '\\int_{a}^{b}'], ['log', '\\log_{2}'], ['sin', '\\sin'], ['cos', '\\cos'], ['tan', '\\tan'], ['lim', '\\lim_{x \\to 0}']]],
+      ['Himpunan & logika', [['∈', '\\in'], ['∪', '\\cup'], ['∩', '\\cap'], ['⊂', '\\subset'], ['∅', '\\emptyset'], ['→', '\\rightarrow'], ['⇒', '\\Rightarrow']]]
+    ];
+    return new Promise(resolve => {
+      const lama = document.getElementById('modal-rumus'); if (lama) lama.remove();
+      const bg = document.createElement('div');
+      bg.id = 'modal-rumus'; bg.className = 'modal-backdrop rumus-bg';
+      bg.innerHTML = `<div class="modal rumus-modal" role="dialog" aria-modal="true" aria-label="${escapeHtml_(o.judul || 'Rumus')}">
+        <h3><i class="fa-solid fa-square-root-variable"></i> ${escapeHtml_(o.judul || 'Rumus')}</h3>
+        <p class="subtitle" style="margin-top:-.4rem">Klik simbol di bawah atau ketik langsung dalam format LaTeX (tanpa tanda $). Pratinjau tampil seperti di soal.</p>
+        <div class="rumus-palet">${GRUP.map(g => `<div class="rumus-grup"><span>${g[0]}</span>${g[1].map((c, i) => `<button type="button" class="rumus-chip" data-snip="${escapeHtml_(c[1]).replace(/"/g, '&quot;')}" title="${escapeHtml_(c[1])}">${escapeHtml_(c[0])}</button>`).join('')}</div>`).join('')}</div>
+        <label class="rumus-lbl" for="rumus-tex">Rumus (LaTeX)</label>
+        <textarea id="rumus-tex" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="mis. \\frac{1}{2} + \\frac{1}{3}"></textarea>
+        <label class="rumus-blok"><input type="checkbox" id="rumus-blok"> Tampilkan di baris sendiri (besar &amp; rata tengah)</label>
+        <div class="rumus-lbl">Pratinjau</div>
+        <div id="rumus-pratinjau" class="rumus-pratinjau"></div>
+        <div id="rumus-galat" class="rumus-galat"></div>
+        <div class="modal-close-row" style="justify-content:space-between">
+          <div>${o.bisaHapus ? '<button type="button" class="danger small" id="rumus-hapus">Hapus Rumus</button>' : ''}</div>
+          <div style="display:flex;gap:.5rem"><button type="button" class="secondary" id="rumus-batal">Batal</button><button type="button" class="accent" id="rumus-ya">${escapeHtml_(o.teksYa || 'Simpan')}</button></div>
+        </div>
+      </div>`;
+      document.body.appendChild(bg);
+      const ta = bg.querySelector('#rumus-tex'), cekBlok = bg.querySelector('#rumus-blok'), pra = bg.querySelector('#rumus-pratinjau'), galat = bg.querySelector('#rumus-galat');
+      ta.value = o.nilai || ''; cekBlok.checked = !!o.blok;
+      const segarkan = () => {
+        const tex = ta.value.trim(); galat.textContent = '';
+        if (!tex) { pra.innerHTML = '<span class="rumus-kosong">Pratinjau rumus akan muncul di sini.</span>'; return; }
+        if (!window.katex) { pra.textContent = tex; galat.textContent = 'Pratinjau belum siap (KaTeX masih dimuat) — rumus tetap bisa disisipkan.'; return; }
+        const opsi = { displayMode: cekBlok.checked, throwOnError: true, strict: 'ignore' };
+        try { pra.innerHTML = katex.renderToString(tex, opsi); }
+        catch (e) {
+          galat.textContent = 'Rumus belum valid: ' + String(e && e.message || e).replace(/^KaTeX parse error:\s*/i, '');
+          try { pra.innerHTML = katex.renderToString(tex, { displayMode: cekBlok.checked, throwOnError: false, strict: 'ignore' }); } catch (x) { pra.textContent = tex; }
+        }
+      };
+      const tutup = (nilai) => { document.removeEventListener('keydown', tombol, true); bg.remove(); resolve(nilai); };
+      const ya = () => { tutup({ tex: ta.value, blok: cekBlok.checked }); };
+      const tombol = (ev) => {
+        if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); tutup(null); }
+        else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); ev.stopPropagation(); ya(); }
+      };
+      document.addEventListener('keydown', tombol, true);
+      ta.addEventListener('input', segarkan); cekBlok.addEventListener('change', segarkan);
+      bg.querySelectorAll('.rumus-chip').forEach(b => b.addEventListener('mousedown', ev => ev.preventDefault())); // jaga fokus & posisi kursor di kotak teks
+      bg.querySelectorAll('.rumus-chip').forEach(b => b.addEventListener('click', () => {
+        const snip = b.getAttribute('data-snip');
+        const a = ta.selectionStart || 0, z = ta.selectionEnd || 0;
+        const pilih = ta.value.slice(a, z);
+        let sisip = snip;
+        if (pilih && /\{[a-z]\}|\{x\}/.test(snip)) sisip = snip.replace(/\{[a-z]\}/, '{' + pilih + '}'); // teks yang disorot masuk ke kurung pertama
+        ta.value = ta.value.slice(0, a) + sisip + ta.value.slice(z);
+        const i = sisip.indexOf('{'), j = i >= 0 ? sisip.indexOf('}', i) : -1;
+        ta.focus();
+        if (!pilih && i >= 0 && j > i) ta.setSelectionRange(a + i + 1, a + j); else ta.setSelectionRange(a + sisip.length, a + sisip.length);
+        segarkan();
+      }));
+      bg.querySelector('#rumus-batal').addEventListener('click', () => tutup(null));
+      bg.querySelector('#rumus-ya').addEventListener('click', ya);
+      const bh = bg.querySelector('#rumus-hapus'); if (bh) bh.addEventListener('click', () => tutup({ hapus: true }));
+      segarkan(); setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 30);
+    });
   },
   // Sisip gambar LANGSUNG di tengah teks pertanyaan/opsi (beda dari kotak upload
   // "Gambar Soal" di bawah, yang selalu tampil di bawah pertanyaan). Dipakai lewat
@@ -4182,10 +4367,23 @@ const UI = {
     { const fa = document.getElementById('field-token-awal'); if (fa) fa.style.display = ujian ? 'none' : ''; const ta = document.getElementById('ujian-token-awal'); if (ta) ta.value = ''; }
     Guru.sinkronDetailPembahasan();
     Guru.muatEditorPesanNilai(ujian && ujian.pesan_nilai);
+    { // jumlah soal yang DIMINTA per subtes: ujian baru = standar resmi; ujian lama = nilai yang tersimpan
+      let amb2 = null; try { amb2 = ujian && ujian.ambang_json ? JSON.parse(ujian.ambang_json) : null; } catch (e) { amb2 = null; }
+      const tg = amb2 && amb2.target;
+      document.getElementById('ujian-n-twk').value = tg ? (Number(tg.twk) || 0) : 30;
+      document.getElementById('ujian-n-tiu').value = tg ? (Number(tg.tiu) || 0) : 35;
+      document.getElementById('ujian-n-tkp').value = tg ? (Number(tg.tkp) || 0) : 45;
+      Guru._ujianLamaTanpaTarget = !!(ujian && !tg);
+    }
     // null (bukan array kosong) khusus menandai "ujian baru, belum ada
     // pilihan tersimpan" -> semua soal yang cocok otomatis tercentang.
     // Ujian yang sedang diubah selalu punya minimal 1 soal_ids tersimpan.
     await Guru.muatPilihanSoalUntukUjian(ujian ? String(ujian.soal_ids || '').split(',').filter(Boolean) : null);
+    if (Guru._ujianLamaTanpaTarget) { // ujian lama belum menyimpan jumlah yang diminta -> samakan dengan isinya sekarang
+      const n = Guru._terpilihSkd();
+      document.getElementById('ujian-n-twk').value = n.TWK; document.getElementById('ujian-n-tiu').value = n.TIU; document.getElementById('ujian-n-tkp').value = n.TKP;
+      Guru.hitungPilihSkd();
+    }
     document.getElementById('modal-ujian').classList.remove('hidden');
   },
 
@@ -5361,7 +5559,7 @@ const Guru = {
       { text: 'Isi tabel di bawah, SATU BARIS = SATU SOAL. Jangan mengubah baris judul kolom. Hapus baris contoh sebelum mengimpor.' },
       { text: 'Kategori: TWK, TIU, atau TKP (menentukan subtes). Topik: materi/sub-materi, mis. Pancasila, UUD 1945, Pola Bilangan, Kecukupan Data, Pelayanan Publik (dipakai untuk analisis materi yang kurang per peserta). Paket (sub-kategori / try out) dipilih saat impor.' },
       { text: 'Tipe PG (TWK/TIU): isi Opsi A–E dan Kunci satu huruf (benar = 5 poin, salah/kosong = 0). Tipe TKP: isi Opsi A–E dan kolom Kunci dengan SKOR 1–5 tiap opsi berurutan A..E, mis. 5,4,3,2,1 (opsi paling tepat = 5). Tipe Kecukupan (soal Kecukupan Data TIU): cukup isi Pertanyaan (termasuk PERNYATAAN (1) dan (2)) dan Kunci A–E; kelima pilihan baku terisi otomatis.' },
-      { text: 'Soal bertabel (mis. Pola Bilangan): pada file Word, tempel/buat tabel langsung di dalam sel Pertanyaan, atau pakai kolom Gambar. Tabel di sel tetap terbaca. Rumus: Insert > Equation. Pangkat/indeks: Superscript/Subscript. Gambar boleh ditempel di kolom Gambar. Pembahasan opsional.' },
+      { text: 'Soal bertabel (mis. Pola Bilangan): pada file Word, tempel/buat tabel langsung di dalam sel Pertanyaan, atau pakai kolom Gambar. Tabel di sel tetap terbaca. Rumus: cukup Insert > Equation (otomatis dikonversi saat impor), atau ketik LaTeX di antara tanda $ ... $, mis. $\\frac{1}{2}$ atau $x^{2}$ (rumus besar di baris sendiri: $$ ... $$). Pangkat/indeks biasa: Superscript/Subscript. Gambar boleh ditempel di kolom Gambar. Pembahasan opsional.' },
       { table: { headers: SKD_TEMPLATE_HEADERS_, rows: SKD_TEMPLATE_ROWS_ } }
     ];
     unduhDocx_('Template_Import_Soal_SKD.docx', items);
@@ -5376,11 +5574,12 @@ const Guru = {
     state.guru.ujianList = res.data;
     if (res.data.length === 0) { cont.innerHTML = '<p class="subtitle">Belum ada ujian.</p>'; return; }
     cont.innerHTML = `<table class="ledger"><thead><tr>
-        <th>Judul</th><th>Token</th><th>Token Aktif untuk</th><th>Durasi</th><th>Jadwal</th><th>Maks. Pelanggaran</th><th>Status</th><th></th>
+        <th>Judul</th><th>Komposisi Soal</th><th>Token</th><th>Token Aktif untuk</th><th>Durasi</th><th>Jadwal</th><th>Maks. Pelanggaran</th><th>Status</th><th></th>
 
       </tr></thead><tbody>` + res.data.map(u => `
         <tr>
           <td><strong>${escapeHtml_(u.judul)}</strong><br><span style="color:var(--c-muted);font-size:.78rem">${labelKategori(u.kategori)}${u.subkategori ? ' • ' + escapeHtml_(u.subkategori) : ''}</span></td>
+          <td id="kom-${u.id}" class="kom-sel" style="font-size:.8rem;min-width:150px"><span class="subtitle">Memuat...</span></td>
           <td><code style="font-size:1rem;font-weight:700">${u.token}</code></td>
           <td id="tk-ringkas-${u.id}" style="font-size:.8rem;max-width:170px">${ringkasTokenKelas_(u)}</td>
           <td>${u.durasi_menit} menit</td>
@@ -5393,6 +5592,35 @@ const Guru = {
             <button class="danger small" onclick="Guru.hapusUjian('${u.id}')">Hapus</button>
           </td>
         </tr>`).join('') + `</tbody></table>`;
+    Guru.isiKomposisiUjian_(res.data);
+  },
+  // Komposisi soal tiap ujian (TWK/TIU/TKP) dibandingkan dengan jumlah yang diminta saat ujian dibuat.
+  async isiKomposisiUjian_(daftar) {
+    let bank = [];
+    try { const r = await api('getBankSoal', { guruId: state.user.id }); if (r && r.ok) bank = r.data || []; } catch (e) { }
+    const peta = {}; bank.forEach(x => { peta[x.id] = x; });
+    daftar.forEach(u => {
+      const el = document.getElementById('kom-' + u.id); if (!el) return;
+      const n = { TWK: 0, TIU: 0, TKP: 0 }; let lain = 0, hilang = 0;
+      String(u.soal_ids || '').split(',').filter(Boolean).forEach(id => { const x = peta[id]; if (!x) { hilang++; return; } const st = skdSubtes_(x); if (st) n[st]++; else lain++; });
+      let amb = null; try { amb = u.ambang_json ? JSON.parse(u.ambang_json) : null; } catch (e) { amb = null; }
+      const tg = amb && amb.target ? { TWK: Number(amb.target.twk) || 0, TIU: Number(amb.target.tiu) || 0, TKP: Number(amb.target.tkp) || 0 } : null;
+      let ada = false; // ada subtes yang kurang?
+      let h = ['TWK', 'TIU', 'TKP'].map(st => {
+        const m = tg ? tg[st] : null;
+        const kurang = m !== null ? Math.max(0, m - n[st]) : (n[st] === 0 ? 1 : 0);
+        if (kurang) ada = true;
+        if (!kurang) return `<div class="kom-baris ok"><b>${st}</b> ${n[st]}${m !== null ? ' / ' + m : ''} soal</div>`;
+        return m !== null
+          ? `<div class="kom-baris kurang"><b>${st}</b> ${n[st]} / ${m} soal — <b>kurang ${kurang}</b></div>`
+          : `<div class="kom-baris kurang"><b>${st}</b> 0 soal — <b>belum ada soal</b></div>`;
+      }).join('');
+      if (hilang) { ada = true; h += `<div class="kom-baris kurang">⚠ ${hilang} soal sudah dihapus dari Bank Soal</div>`; }
+      if (lain) h += `<div class="kom-baris">${lain} soal tanpa subtes (tidak terhitung)</div>`;
+      h += `<div class="kom-total ${ada ? 'kurang' : 'ok'}">Total ${n.TWK + n.TIU + n.TKP} soal${tg ? ' dari ' + (tg.TWK + tg.TIU + tg.TKP) + ' diminta' : ''}${ada ? ' — <b>belum lengkap</b>' : ''}</div>`;
+      if (!tg) h += '<div class="kom-baris" style="opacity:.7">Jumlah diminta belum tersimpan (ujian lama). Buka “Ubah” lalu simpan.</div>';
+      el.innerHTML = h;
+    });
   },
 
   // ---------------- TOKEN PER KELAS (modal) ----------------
@@ -5477,10 +5705,49 @@ const Guru = {
       </label>`).join('') + '</div>').join('');
     if (!ada) Guru.susunSoalSkd(false); else Guru.hitungPilihSkd();
   },
-  hitungPilihSkd() {
+  // Jumlah soal yang DIMINTA per subtes (kotak TWK / TIU / TKP di form ujian).
+  _targetSkd() {
+    const v = (id) => { const e = document.getElementById(id); return Math.max(0, Math.floor(Number(e && e.value) || 0)); };
+    return { TWK: v('ujian-n-twk'), TIU: v('ujian-n-tiu'), TKP: v('ujian-n-tkp') };
+  },
+  _terpilihSkd() {
     const n = { TWK: 0, TIU: 0, TKP: 0 };
-    document.querySelectorAll('.chk-soal-ujian:checked').forEach(c => { n[c.dataset.st]++; });
+    document.querySelectorAll('.chk-soal-ujian:checked').forEach(c => { if (n[c.dataset.st] !== undefined) n[c.dataset.st]++; });
+    return n;
+  },
+  hitungPilihSkd() {
+    const n = Guru._terpilihSkd();
     const el = document.getElementById('skd-hitung-pilih'); if (el) el.textContent = `— terpilih TWK ${n.TWK} · TIU ${n.TIU} · TKP ${n.TKP} = ${n.TWK + n.TIU + n.TKP} soal`;
+    Guru.renderInfoKurangSkd_(n);
+  },
+  // Keterangan PERMANEN (bukan toast sesaat): diminta vs tersedia di Bank Soal vs terpilih, per subtes.
+  renderInfoKurangSkd_(n) {
+    const box = document.getElementById('skd-kurang-info'); if (!box) return;
+    n = n || Guru._terpilihSkd();
+    const minta = Guru._targetSkd(); const pool = Guru._poolSkd || { TWK: [], TIU: [], TKP: [] };
+    const paket = (document.getElementById('ujian-subkategori') || {}).value || '';
+    const paketTeks = paket.trim() ? ` pada paket “${escapeHtml_(paket.trim())}”` : '';
+    const baris = ['TWK', 'TIU', 'TKP'].map(st => {
+      const ada = (pool[st] || []).length, pilih = n[st], m = minta[st];
+      let kelas = 'ok', ket = '✔ sesuai';
+      if (m > 0 && ada < m) { kelas = 'kurang'; ket = `✖ kurang ${m - ada} soal di Bank Soal${paketTeks}`; }
+      else if (pilih < m) { kelas = 'sedang'; ket = `⚠ baru ${pilih} terpilih, kurang ${m - pilih} — klik “Susun Soal”`; }
+      else if (pilih > m) { kelas = 'lebih'; ket = `ℹ lebih ${pilih - m} dari yang diminta`; }
+      return { st, m, ada, pilih, kelas, ket };
+    });
+    const bermasalah = baris.filter(b => b.kelas === 'kurang' || b.kelas === 'sedang');
+    let h = '';
+    if (bermasalah.length) {
+      h += `<div class="skd-kurang-banner warn"><b>Jumlah soal belum sesuai permintaan.</b> ` + bermasalah.map(b => b.kelas === 'kurang'
+        ? `<b>${b.st}</b> kurang <b>${b.m - b.ada}</b> soal (diminta ${b.m}, tersedia ${b.ada})`
+        : `<b>${b.st}</b> baru terpilih ${b.pilih} dari ${b.m}`).join('; ') +
+        `. Tambahkan soalnya di Bank Soal (kategori ${bermasalah.filter(b => b.kelas === 'kurang').map(b => b.st).join('/') || 'terkait'}) atau kecilkan jumlah yang diminta.</div>`;
+    } else if (baris.some(b => b.m > 0)) {
+      h += `<div class="skd-kurang-banner ok">✔ Jumlah soal sesuai permintaan: TWK ${n.TWK} · TIU ${n.TIU} · TKP ${n.TKP} = ${n.TWK + n.TIU + n.TKP} soal.</div>`;
+    }
+    h += `<table class="skd-kurang-tbl"><thead><tr><th>Subtes</th><th>Diminta</th><th>Tersedia</th><th>Terpilih</th><th>Keterangan</th></tr></thead><tbody>` +
+      baris.map(b => `<tr class="${b.kelas}"><td><b>${b.st}</b></td><td>${b.m}</td><td>${b.ada}</td><td>${b.pilih}</td><td>${b.ket}</td></tr>`).join('') + '</tbody></table>';
+    box.innerHTML = h;
   },
   susunSoalSkd(acak) {
     const want = { TWK: Number(document.getElementById('ujian-n-twk').value) || 0, TIU: Number(document.getElementById('ujian-n-tiu').value) || 0, TKP: Number(document.getElementById('ujian-n-tkp').value) || 0 };
@@ -5493,7 +5760,7 @@ const Guru = {
     document.querySelectorAll('.chk-soal-ujian').forEach(c => { c.checked = pilih.has(c.value); });
     Guru.hitungPilihSkd();
     const kurang = ['TWK', 'TIU', 'TKP'].filter(st => (Guru._poolSkd && Guru._poolSkd[st] || []).length < want[st]);
-    if (kurang.length) toast('Soal ' + kurang.join(', ') + ' di Bank Soal kurang dari jumlah yang diminta; semua yang ada dipakai.', 'error');
+    if (kurang.length) toast('Soal ' + kurang.join(', ') + ' di Bank Soal kurang dari jumlah yang diminta; semua yang ada dipakai. Lihat keterangan merah di bawah.', 'error');
   },
   terapkanPresetAmbang() {
     const p = SKD_PRESET[document.getElementById('ujian-formasi').value] || SKD_PRESET.umum;
@@ -5509,6 +5776,21 @@ const Guru = {
     return jalankanDenganTombolSibuk('btn-simpan-ujian', 'Menyimpan...', async () => {
       const soalIds = Array.from(document.querySelectorAll('.chk-soal-ujian:checked')).map(c => c.value);
       if (soalIds.length === 0) { toast('Pilih minimal satu soal.', 'error'); return; }
+      { // peringatan bila jumlah soal terpilih kurang dari yang diminta
+        const minta = Guru._targetSkd(), pilih = Guru._terpilihSkd();
+        const kurang = ['TWK', 'TIU', 'TKP'].filter(st => pilih[st] < minta[st]);
+        if (kurang.length) {
+          const lanjut = await Dialog.konfirmasi({
+            judul: 'Jumlah Soal Belum Sesuai', tipe: 'warning', ikon: 'fa-triangle-exclamation',
+            pesan: 'Soal yang dipilih **kurang** dari jumlah yang diminta:\n' +
+              kurang.map(st => `• **${st}**: terpilih ${pilih[st]} dari ${minta[st]} (kurang ${minta[st] - pilih[st]})`).join('\n') +
+              '\n\nPeserta hanya akan mendapat soal yang terpilih. Tambahkan soal di Bank Soal dahulu, atau tetap simpan?',
+            teksYa: 'Tetap Simpan', teksBatal: 'Kembali & Perbaiki'
+          });
+          if (!lanjut) return;
+        }
+      }
+      const targetSkd = Guru._targetSkd();
       const ujian = {
         id: document.getElementById('ujian-id').value || undefined,
         guru_id: state.user.id,
@@ -5519,7 +5801,7 @@ const Guru = {
         durasi_menit: Number(document.getElementById('ujian-durasi').value),
         toleransi_menit: Number(document.getElementById('ujian-toleransi').value),
         nilai_lulus: Number(document.getElementById('ujian-amb-total').value) || 0,
-        ambang_json: JSON.stringify({ formasi: document.getElementById('ujian-formasi').value, twk: Number(document.getElementById('ujian-amb-twk').value) || 0, tiu: Number(document.getElementById('ujian-amb-tiu').value) || 0, tkp: Number(document.getElementById('ujian-amb-tkp').value) || 0, total: Number(document.getElementById('ujian-amb-total').value) || 0 }),
+        ambang_json: JSON.stringify({ formasi: document.getElementById('ujian-formasi').value, twk: Number(document.getElementById('ujian-amb-twk').value) || 0, tiu: Number(document.getElementById('ujian-amb-tiu').value) || 0, tkp: Number(document.getElementById('ujian-amb-tkp').value) || 0, total: Number(document.getElementById('ujian-amb-total').value) || 0, target: { twk: targetSkd.TWK, tiu: targetSkd.TIU, tkp: targetSkd.TKP } }),
         max_pelanggaran: Number(document.getElementById('ujian-max-pelanggaran').value),
         mulai: document.getElementById('ujian-mulai').value ? new Date(document.getElementById('ujian-mulai').value).toISOString() : '',
         selesai: document.getElementById('ujian-selesai').value ? new Date(document.getElementById('ujian-selesai').value).toISOString() : '',
@@ -6833,8 +7115,16 @@ const Guru = {
   // Kolom sama persis dgn template Word (lihat Guru.unduhTemplateSoalDocx &
   // barisTabelJadiSoal_) supaya guru cukup belajar 1 format saja utk kedua jenis
   // file. Baris pertama sheet = header (dibaca berdasarkan nama, bebas urutan).
-  unduhTemplateSoal() {
-    unduhXlsx('Template_Import_Soal_SKD.xlsx', SKD_TEMPLATE_HEADERS_, SKD_TEMPLATE_ROWS_);
+  async unduhTemplateSoal() {
+    try { await muatPustaka_('xlsx'); } catch (e) { toast(e.message, 'error'); return; }
+    const ws = XLSX.utils.aoa_to_sheet([SKD_TEMPLATE_HEADERS_, ...SKD_TEMPLATE_ROWS_]);
+    ws['!cols'] = [10, 18, 11, 60, 14, 28, 28, 28, 28, 28, 12, 8, 11, 44].map(w => ({ wch: w }));
+    const wp = XLSX.utils.aoa_to_sheet(PETUNJUK_RUMUS_ROWS_);
+    wp['!cols'] = [46, 52, 52].map(w => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template');            // sheet PERTAMA = yang dibaca saat impor
+    XLSX.utils.book_append_sheet(wb, wp, 'Petunjuk Rumus');       // sheet kedua hanya bacaan
+    XLSX.writeFile(wb, 'Template_Import_Soal_SKD.xlsx');
   },
 
   // ---------------- TEMA & TAMPILAN ----------------
@@ -9252,23 +9542,20 @@ document.addEventListener('focusout', (ev) => {
   const ed = ev.target && ev.target.closest ? ev.target.closest('.rich-editable') : null;
   if (!ed) return;
   const salin = ed.cloneNode(true);
-  salin.querySelectorAll('.katex').forEach(k => k.remove());
-  if (/\$[^$\n]+\$/.test(salin.textContent)) rtRenderUlang_(ed);
+  salin.querySelectorAll('.katex, .katex-display').forEach(k => k.remove());
+  if (/\$[^$\n]+\$|\\\(.+?\\\)|\\\[.+?\\\]/.test(salin.textContent)) rtRenderUlang_(ed);
 });
 // Klik 2x pada rumus di kotak editor -> ubah rumusnya (LaTeX).
 document.addEventListener('dblclick', async (ev) => {
-  const k = ev.target && ev.target.closest ? ev.target.closest('.rich-editable .katex') : null;
+  const k = ev.target && ev.target.closest ? ev.target.closest('.rich-editable .katex') : null; // juga mencakup rumus blok (.katex di dalam .katex-display)
   if (!k) return;
   const ed = k.closest('.rich-editable');
+  const disp = k.closest('.katex-display'); const target = disp || k;
   const ann = k.querySelector('annotation[encoding="application/x-tex"]');
-  const baru = await Dialog.input({
-    judul: 'Ubah Rumus', ikon: 'fa-square-root-variable',
-    pesan: 'Ubah rumus dalam format **LaTeX**. Kosongkan lalu simpan untuk menghapus rumus.',
-    label: 'Rumus (LaTeX)', nilai: ann ? ann.textContent : '', teksYa: 'Simpan Rumus'
-  });
-  if (baru !== null && !k.isConnected) return;
-  if (baru === null) return;
-  if (!baru.trim()) k.remove(); else k.replaceWith(document.createTextNode('$' + baru.trim() + '$'));
+  const r = await UI.dialogRumus({ judul: 'Ubah Rumus', nilai: ann ? ann.textContent : '', blok: !!disp, bisaHapus: true, teksYa: 'Simpan Rumus' });
+  if (!r || !target.isConnected) return;
+  const tex = (r.tex || '').trim();
+  if (r.hapus || !tex) target.remove(); else target.replaceWith(document.createTextNode(r.blok ? '$$' + tex + '$$' : '$' + tex + '$'));
   rtRenderUlang_(ed);
 });
 

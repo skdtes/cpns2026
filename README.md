@@ -10,7 +10,7 @@ peserta meniru CAT BKN. Dibangun di atas mesin CBT sebelumnya (GitHub Pages + Go
 1. **Apps Script:** ganti isi `Code.gs`, lalu *Deploy › Manage deployments › New version*. Kolom baru dibuat otomatis:
    `Ujian.ambang_json` dan `Sesi.skor_json` (sheet lama tetap utuh).
 2. **GitHub:** unggah semua isi folder ini **kecuali `config.js`** (berkas itu berisi alamat Apps Script Anda; jangan ditimpa dengan yang kosong).
-   Berkas yang dibutuhkan: `index.html`, `app.js`, `skd.js`, `skd.css`, `style.css`, `manifest.json`, `icons/`.
+   Berkas yang dibutuhkan: `index.html`, `app.js`, `skd.js`, `skd.css`, `style.css`, `manifest.json`, `icons/`, `vendor/`.
    Berkas lama `anbk.js`, `anbk.css`, `survei.js`, `survei.css`, dan template survei `.docx` **tidak dipakai lagi**; hapus dari repo.
 3. Tekan Ctrl+F5. Di HP, hapus lalu instal ulang aplikasi agar nama dan ikon baru terbaca.
 
@@ -50,6 +50,20 @@ Dashboard (grafik garis rata-rata TWK/TIU/TKP/Total per simulasi), Bank Soal, Ke
   * **Soal bertabel** (Pola Bilangan, tabel X–Y, dll.): pada Word, buat/tempel **tabel di dalam sel Pertanyaan**; tabel ikut terbaca dan tampil di layar peserta. Gambar boleh di kolom Gambar.
 * `Contoh_Soal_SKD_Format_CBT.docx` berisi 11 soal contoh (3 TWK, 5 TIU termasuk 2 Kecukupan Data bertabel, 3 TKP) yang siap diimpor untuk uji coba.
 * Soal tipe lain (checkbox, jodohkan, dll.) tidak lagi ditawarkan di tab Kelola Soal; data lama tidak dihapus.
+
+## Rumus matematika
+Rumus tampil rapi (KaTeX, dibundel lokal di `vendor/katex/` sehingga tetap jalan walau CDN lambat) di layar ujian, pratinjau, detail jawaban, dan pembahasan.
+* **Word (.docx):** cukup *Insert › Equation*; otomatis dikonversi saat impor.
+* **Excel (.xlsx) / ketik manual:** apit rumus dengan `$ ... $` (LaTeX), mis. `$\frac{1}{2}$`, `$x^{2}$`, `$\sqrt{49}$`. Rumus besar di baris sendiri: `$$ ... $$`.
+  Template Excel punya sheet kedua **"Petunjuk Rumus"** berisi contoh siap salin. Tanda `<` dan `>` di dalam rumus aman dipakai.
+* **Form Tambah Soal:** tombol **RUMUS Σ** membuka kotak rumus dengan pratinjau langsung dan tombol simbol (pecahan, pangkat, akar, ≤ ≥ ≠, π, ∑, ∫, log, dst). Klik 2× pada rumus di kotak editor untuk mengubahnya.
+* Pemasangan: unggah juga folder `vendor/` ke GitHub.
+
+## Keterangan jumlah soal (TWK/TIU/TKP) pada ujian
+* Di form ujian muncul panel **Diminta / Tersedia / Terpilih** per subtes, merah bila soal di Bank Soal kurang dari jumlah yang diminta.
+* Saat **Simpan Ujian** dengan jumlah soal kurang, muncul konfirmasi (*Tetap Simpan* / *Kembali & Perbaiki*).
+* Jumlah yang diminta ikut tersimpan di `ambang_json` (tanpa perubahan kolom/`Code.gs`), sehingga **Kelola Ujian** punya kolom **Komposisi Soal** (mis. `TIU 30 / 35 — kurang 5`), termasuk menandai soal yang sudah dihapus dari Bank Soal.
+* Ujian lama (belum menyimpan jumlah yang diminta) cukup dibuka lewat **Ubah** lalu **Simpan** sekali.
 
 ## Dihapus dari versi sebelumnya
 Seluruh fitur survei (Survei Karakter/Sulingjar) dan identitas ANBK/TKA/sekolah. Sheet `Survei`/`PaketSurvei` lama tidak dipakai lagi (boleh dihapus manual).

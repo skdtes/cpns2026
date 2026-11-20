@@ -28,21 +28,31 @@
      dimuat TANPA memblokir tampilan halaman login (dulu halaman kosong sampai keduanya selesai diunduh). -->
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="dns-prefetch" href="https://script.google.com">
-<link rel="stylesheet" href="style.css?v=72">
+<link rel="stylesheet" href="style.css?v=73">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
-<link rel="stylesheet" href="skd.css?v=71">
+<link rel="stylesheet" href="skd.css?v=72">
 <!-- Font Awesome: ikon sidebar & tombol (gaya dashboard modern) -->
 <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
 <!-- KaTeX: render persamaan matematika (LaTeX) di dalam soal -->
-<link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" onload="this.onload=null;this.rel='stylesheet'">
+<!-- KaTeX dibundel LOKAL (vendor/katex) supaya rumus tetap tampil walau CDN lambat/terblokir; CDN hanya cadangan -->
+<link rel="stylesheet" href="vendor/katex/katex.min.css?v=1">
 <noscript>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 </noscript>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script defer src="vendor/katex/katex.min.js?v=1" onerror="window.__katexCadangan&&window.__katexCadangan()"></script>
+<script defer src="vendor/katex/auto-render.min.js?v=1" onerror="window.__katexCadangan&&window.__katexCadangan()"></script>
+<script>
+  // Cadangan: bila berkas lokal gagal dimuat, ambil KaTeX dari CDN (sekali saja).
+  window.__katexCadangan = function () {
+    if (window.__katexCadanganJalan) return; window.__katexCadanganJalan = true;
+    var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css'; document.head.appendChild(css);
+    var a = document.createElement('script'); a.src = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js';
+    a.onload = function () { var b = document.createElement('script'); b.src = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js'; document.head.appendChild(b); };
+    document.head.appendChild(a);
+  };
+</script>
 <!-- SheetJS (baca/tulis .xlsx) & Mammoth (baca .docx) HANYA dipakai Portal Guru, jadi TIDAK lagi
      dimuat di sini (dulu ~1,5 MB memblokir halaman untuk SETIAP siswa). Keduanya dimuat otomatis
      saat dibutuhkan lewat muatPustaka_() di app.js. -->
@@ -301,7 +311,7 @@
             <div class="aksi-card" onclick="document.getElementById('input-import-soal').click()">
               <div class="aksi-card-ico">📄</div>
               <div class="aksi-card-judul">Import dari Excel (.xlsx)</div>
-              <div class="aksi-card-desc">Isi tabel: 1 baris = 1 soal. Tipe PG (TWK/TIU), TKP (kolom Kunci = skor 1–5 tiap opsi), atau Kecukupan (pilihan baku otomatis).</div>
+              <div class="aksi-card-desc">Isi tabel: 1 baris = 1 soal. Tipe PG (TWK/TIU), TKP (kolom Kunci = skor 1–5 tiap opsi), atau Kecukupan (pilihan baku otomatis). Rumus matematika: tulis LaTeX di antara tanda $ ... $ (lihat sheet "Petunjuk Rumus" di template).</div>
               <div class="aksi-card-aksi-row">
                 <button type="button" class="secondary small" onclick="event.stopPropagation();Guru.unduhTemplateSoal()">⬇ Unduh Template</button>
                 <label class="secondary small aksi-card-pilih-gambar" onclick="event.stopPropagation()">
@@ -314,7 +324,7 @@
             <div class="aksi-card" onclick="document.getElementById('input-import-soal-docx').click()">
               <div class="aksi-card-ico">📄</div>
               <div class="aksi-card-judul">Import dari Word (.docx)</div>
-              <div class="aksi-card-desc">Format tabel sama seperti template Excel; tabel di dalam sel Pertanyaan (soal TIU bertabel) tetap terbaca — gambar yang ditempel langsung di kolom "Gambar"/Pertanyaan/Opsi otomatis terdeteksi &amp; terunggah, tanpa perlu pilih file terpisah.</div>
+              <div class="aksi-card-desc">Format tabel sama seperti template Excel; rumus dari <i>Insert › Equation</i> Word otomatis dikonversi dan tampil rapi; tabel di dalam sel Pertanyaan (soal TIU bertabel) tetap terbaca — gambar yang ditempel langsung di kolom "Gambar"/Pertanyaan/Opsi otomatis terdeteksi &amp; terunggah, tanpa perlu pilih file terpisah.</div>
               <div class="aksi-card-aksi-row">
                 <button type="button" class="secondary small" onclick="event.stopPropagation();Guru.unduhTemplateSoalDocx()">⬇ Unduh Template</button>
                 <label class="secondary small aksi-card-pilih-gambar" onclick="event.stopPropagation()">
@@ -1070,11 +1080,12 @@
         </div>
       </div>
       <div class="row" style="margin:.2rem 0 .5rem;align-items:flex-end">
-        <div class="field"><label>TWK</label><input type="number" id="ujian-n-twk" min="0" value="30"></div>
-        <div class="field"><label>TIU</label><input type="number" id="ujian-n-tiu" min="0" value="35"></div>
-        <div class="field"><label>TKP</label><input type="number" id="ujian-n-tkp" min="0" value="45"></div>
+        <div class="field"><label>TWK</label><input type="number" id="ujian-n-twk" min="0" value="30" oninput="Guru.hitungPilihSkd()"></div>
+        <div class="field"><label>TIU</label><input type="number" id="ujian-n-tiu" min="0" value="35" oninput="Guru.hitungPilihSkd()"></div>
+        <div class="field"><label>TKP</label><input type="number" id="ujian-n-tkp" min="0" value="45" oninput="Guru.hitungPilihSkd()"></div>
         <div class="field" style="flex:0 0 auto"><button type="button" class="accent small" onclick="Guru.susunSoalSkd(false)"><i class="fa-solid fa-wand-magic-sparkles"></i> Susun Soal</button> <button type="button" class="secondary small" onclick="Guru.susunSoalSkd(true)"><i class="fa-solid fa-shuffle"></i> Acak Ulang</button></div>
       </div>
+      <div id="skd-kurang-info" class="skd-kurang-info" role="status" aria-live="polite"></div>
       <div id="pilihan-soal-ujian" style="max-height:220px;overflow-y:auto;border:1px solid var(--c-line);padding:.6rem;border-radius:3px"></div>
     </div>
     <div class="row">
@@ -1374,7 +1385,7 @@
 </div>
 
 <script src="config.js"></script>
-<script src="app.js?v=71"></script>
-<script src="skd.js?v=71"></script>
+<script src="app.js?v=73"></script>
+<script src="skd.js?v=72"></script>
 </body>
 </html>
