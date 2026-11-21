@@ -122,6 +122,88 @@ section.skd-card { padding: 22px 24px; } .skd-card-flat { background: #f8fafd; b
 .skd-nav .skd-btn-outline-red { margin-left: auto; } .skd-ragu { cursor: pointer; user-select: none; } .skd-ragu input { width: 17px; height: 17px; accent-color: #b8860b; margin: 0; }
 .exam-watermark { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
 
+
+/* ============================================================================
+   TAMPILAN LAYAR UJIAN — versi profesional (menimpa aturan lama di atas)
+   Ukuran teks: SELURUH isi soal (pertanyaan, pilihan, rumus, tabel) ikut skala --skala
+   lewat font-size #question-card; elemen di dalamnya memakai em.
+   ============================================================================ */
+.skd-exam { background: #eef1f6; }
+.skd-exam-head { position: sticky; top: 0; z-index: 30; padding: 12px 24px; gap: 18px; align-items: center;
+  background: linear-gradient(100deg, #14295a 0%, #1e3a8a 58%, #28489a 100%); box-shadow: 0 2px 12px rgba(10, 25, 60, .28); }
+.skd-exam-title h1 { font-size: 19px; font-weight: 600; letter-spacing: .2px; line-height: 1.25; }
+.skd-exam-title p { font-size: 13px; opacity: .85; margin-top: 3px; }
+.skd-exam-prog { background: transparent; padding: 0; gap: 7px; }
+.skd-prog-teks { text-align: left; font-size: 13px; opacity: .92; }
+.skd-prog-bar { height: 8px; background: rgba(255, 255, 255, .2); }
+.skd-prog-bar i { background: linear-gradient(90deg, #67e8f9, #86efac); }
+.skd-exam-timer { background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .25); border-radius: 12px; padding: 8px 20px; font-size: 26px; letter-spacing: .5px; }
+.skd-exam-body { grid-template-columns: 350px minmax(0, 1fr); gap: 20px; padding: 20px 20px 34px; }
+.skd-navpanel { top: 86px; max-height: calc(100vh - 124px); border-radius: 12px; padding: 18px 18px 16px; border: 1px solid #e1e7f0; box-shadow: 0 1px 3px rgba(20, 35, 70, .06); }
+.skd-navpanel h3 { font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #1e3a8a; margin-bottom: 14px; }
+.skd-page .soal-grid { gap: 7px; }
+.skd-page .soal-grid button { height: 40px; border-radius: 8px; font-size: 14.5px; font-weight: 600; }
+.skd-page .soal-grid button.current { outline: 3px solid #1e3a8a; outline-offset: 2px; }
+.skd-legend { margin-top: 16px; padding-top: 12px; border-top: 1px solid #e8edf5; font-size: 12px; }
+
+.skd-qpanel { border-radius: 12px; border: 1px solid #e1e7f0; box-shadow: 0 1px 3px rgba(20, 35, 70, .06); padding: 26px 36px 0; overflow: visible; }
+.skd-q-top { align-items: center; gap: 10px 14px; padding-bottom: 16px; }
+.skd-q-top h2 { font-size: 22px; font-weight: 600; color: #14295a; width: auto; margin-right: 2px; }
+.skd-badge-subtes { border-radius: 6px; padding: 5px 12px; font-size: 12.5px; letter-spacing: .02em; }
+.skd-badge-subtes.sub-TWK { background: #1e3a8a; }
+.skd-font { margin-left: auto; display: flex; align-items: center; gap: 2px; padding: 3px; background: #f1f4f9; border: 1px solid #e1e7f0; border-radius: 10px; color: #5f6b7a; font-size: 12px; }
+.skd-font-lbl { padding: 0 8px 0 6px; white-space: nowrap; } .skd-font-lbl i { margin-right: 4px; }
+.skd-exam .skd-fs { all: unset; box-sizing: border-box; cursor: pointer; min-width: 38px; height: 32px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 8px; font: 700 15px 'Poppins', sans-serif; color: #1e3a8a; user-select: none; -webkit-tap-highlight-color: transparent; }
+.skd-exam .skd-fs small { font-size: 11px; margin-left: 1px; vertical-align: super; }
+.skd-exam .skd-fs:hover:not(:disabled) { background: #fff; box-shadow: 0 1px 3px rgba(20, 35, 70, .15); }
+.skd-exam .skd-fs:focus-visible { outline: 2px solid #1e3a8a; outline-offset: 1px; }
+.skd-exam .skd-fs:disabled { opacity: .35; cursor: not-allowed; }
+.skd-exam .skd-fs-nilai { min-width: 54px; font-weight: 600; font-size: 12.5px; color: #344054; font-variant-numeric: tabular-nums; }
+
+/* isi soal: ikut skala */
+.skd-exam #question-card { padding: 22px 0 10px; font-size: calc(17px * var(--skala, 1)); color: #1f2937; line-height: 1.6; }
+.skd-exam #question-card .skd-pertanyaan, .skd-exam #question-card .pertanyaan { font-size: 1em; line-height: 1.75; background: #f8fafd; border: 1px solid #e3e9f3; border-left: 4px solid #1e3a8a; border-radius: 8px; padding: 1.1em 1.3em; margin: 0 0 1.3em; color: #1f2937; }
+.skd-exam #question-card .skd-opsi-list { gap: .7em; }
+.skd-exam #question-card .skd-opsi { font-size: 1em; gap: 1em; padding: .8em 1.1em; border: 1.5px solid #dbe2ee; border-radius: 10px; background: #fff; box-shadow: none; transition: border-color .12s, background .12s, box-shadow .12s; }
+.skd-exam #question-card .skd-opsi:hover { border-color: #8fa8d8; background: #f6f9ff; }
+.skd-exam #question-card .skd-opsi.selected { border-color: #1e3a8a; background: #eaf0fc; box-shadow: inset 0 0 0 1px #1e3a8a; }
+.skd-exam #question-card .skd-opsi-t { font-size: 1em; font-weight: 400; color: #1f2937; line-height: 1.55; }
+.skd-exam #question-card .skd-huruf { width: 2.3em; height: 2.3em; border-radius: 8px; background: #eef1f7; color: #1e3a8a; font-size: .92em; font-weight: 700; }
+.skd-exam #question-card .skd-opsi.selected .skd-huruf { background: #1e3a8a; color: #fff; }
+.skd-exam #question-card textarea { font-size: 1em; }
+.skd-exam #question-card table { font-size: .95em; }
+
+/* bilah tombol bawah: menempel di dasar layar agar tombol selalu terlihat pada soal panjang */
+.skd-exam .skd-nav { position: sticky; bottom: 0; z-index: 6; margin: 24px -36px 0; padding: 14px 36px; gap: 10px; align-items: center;
+  background: rgba(255, 255, 255, .97); border-top: 1px solid #e1e7f0; border-radius: 0 0 12px 12px; box-shadow: 0 -8px 16px rgba(20, 35, 70, .05); }
+.skd-exam .skd-nav .skd-btn { border-radius: 8px; font-size: 14px; padding: 11px 18px; }
+.skd-exam #btn-soal-prev { order: 1; }
+.skd-exam .skd-ragu { order: 2; margin-left: auto; background: #fff8e1; color: #7a5600; border: 1px solid #f0c24b; font-weight: 600; }
+.skd-exam .skd-ragu:has(input:checked) { background: #ffc107; color: #3a2a00; border-color: #e0a800; }
+.skd-exam #btn-lewatkan { order: 3; margin-left: 0; color: #475467; border-color: #c7ced8; }
+.skd-exam #btn-soal-next { order: 4; background: #1e3a8a; padding: 12px 24px; font-weight: 600; box-shadow: 0 2px 6px rgba(30, 58, 138, .3); }
+.skd-exam .skd-nav .skd-btn-sm { order: 5; background: #fff; color: #475467; border: 1px solid #c7ced8; padding: 11px 13px; }
+
+/* watermark nama guru: chip kecil di kiri bawah (dulu menempel di pojok kiri atas & menimpa header) */
+.skd-exam .exam-watermark { position: fixed; inset: auto auto 8px 14px; z-index: 40; width: auto; max-width: min(340px, 60vw); height: auto; padding: 3px 11px;
+  font-size: 11px; color: #667085; background: rgba(255, 255, 255, .88); border: 1px solid #e1e7f0; border-radius: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  pointer-events: none; user-select: none; -webkit-user-select: none; text-shadow: none; opacity: 1; }
+.skd-exam .exam-watermark:empty { display: none; }
+
+@media (max-width: 980px) {
+  .skd-exam-head { position: static; padding: 12px 14px; } .skd-exam-body { grid-template-columns: 1fr; padding: 12px 10px 24px; }
+  .skd-navpanel { position: static; max-height: none; }
+  .skd-qpanel { padding: 18px 16px 0; } .skd-exam .skd-nav { margin: 20px -16px 0; padding: 12px 14px; }
+}
+@media (max-width: 640px) {
+  .skd-font-lbl { display: none; } .skd-font { margin-left: 0; }
+  .skd-q-top h2 { font-size: 19px; }
+  .skd-exam .skd-nav { gap: 8px; } .skd-exam .skd-nav .skd-btn { flex: 1 1 calc(50% - 8px); padding: 11px 8px; font-size: 13px; }
+  .skd-exam #btn-soal-next { flex: 1 1 100%; order: 6; } .skd-exam .skd-ragu { margin-left: 0; } .skd-exam .skd-nav .skd-btn-sm { flex: 0 0 auto; }
+  .skd-exam .exam-watermark { max-width: 80vw; }
+}
+
 /* ---------- hasil, dashboard, analisis ---------- */
 .skd-banner { display: flex; gap: 18px; align-items: center; padding: 20px 26px; border-radius: 16px; margin: 14px 0 18px; color: #fff; } .skd-banner > i { font-size: 40px; } .skd-banner p { margin: 2px 0 0; opacity: .95; }
 .skd-banner b { font-size: 20px; } .skd-banner.ok { background: linear-gradient(110deg, #16794c, #25a56b); } .skd-banner.no { background: linear-gradient(110deg, #b4232f, #e0525d); }
@@ -188,7 +270,7 @@ section.skd-card { padding: 22px 24px; } .skd-card-flat { background: #f8fafd; b
 .cert-frame { position: relative; width: 100%; height: 100%; border: 3px solid #c9a24b; outline: 1px solid #c9a24b; outline-offset: -9px; background: radial-gradient(circle at 20% 20%, #fff, #f3f5fa 70%); overflow: hidden; font-family: 'Poppins', Georgia, serif; }
 .cert-corner { position: absolute; width: 120px; height: 120px; background: linear-gradient(135deg, #1b3a72, #2a4a82); } .cert-corner.tl { left: 0; top: 0; clip-path: polygon(0 0, 100% 0, 0 100%); } .cert-corner.br { right: 0; bottom: 0; clip-path: polygon(100% 0, 100% 100%, 0 100%); }
 .cert-logo-tr { position: absolute; right: 22px; top: 18px; width: 70px; height: 70px; }
-.cert-in { text-align: center; padding: 26px 70px 0; } .cert-in h1 { margin: 0; font-size: 46px; letter-spacing: 12px; color: #a67c1a; font-weight: 700; } .cert-in h2 { margin: 2px 0 0; font-size: 24px; letter-spacing: 1px; color: #1b2a4a; }
+.cert-frame { display: flex; align-items: center; } .cert-in { width: 100%; text-align: center; padding: 0 70px; } .cert-in h1 { margin: 0; font-size: 46px; letter-spacing: 12px; color: #a67c1a; font-weight: 700; } .cert-in h2 { margin: 2px 0 0; font-size: 24px; letter-spacing: 1px; color: #1b2a4a; }
 .cert-sim { display: inline-block; margin: 6px 0 4px; padding: 2px 16px; border: 1.5px solid #c9a24b; border-radius: 20px; color: #8a6a14; font-size: 12px; letter-spacing: 2px; font-weight: 600; } .cert-no { font-size: 11px; color: #555; margin: 6px 0 10px; letter-spacing: .5px; }
 .cert-kpd { margin: 6px 0 4px; font-size: 14px; } .cert-nama { display: inline-block; min-width: 60%; padding: 6px 30px 8px; font-size: 30px; font-weight: 700; color: #1b2a4a; border-bottom: 3px solid #c9a24b; } .cert-kelas { margin: 4px 0 0; color: #555; font-size: 13px; }
 .cert-tgl { margin: 10px 0 12px; font-size: 14px; color: #333; }
@@ -199,6 +281,11 @@ section.skd-card { padding: 22px 24px; } .skd-card-flat { background: #f8fafd; b
 @media print {
   body > *:not(#cetak-area) { display: none !important; } #cetak-area { display: block !important; }
   .kp-area { page: kartu; } .cert-area { page: sertifikat; }
+  /* Kelas body.cetak-detail-siswa (dipasang saat cetak apa pun) memaksa halaman "cetakdsw" = A4 POTRET + margin dan menimpa aturan di atas;
+     spesifisitas dinaikkan agar sertifikat tetap A4 LANDSCAPE tanpa margin dan kartu peserta tetap memakai halaman kartu. */
+  body.cetak-detail-siswa #cetak-area.cert-area { page: sertifikat; background: #fff; }
+  body.cetak-detail-siswa #cetak-area.kp-area { page: kartu; }
+  .cert-area .cert { overflow: hidden; }
   @page kartu { size: A4 portrait; margin: 10mm; } @page sertifikat { size: A4 landscape; margin: 0; }
   .kp-k2 .kp-card { margin-bottom: 12mm; } .kp-k4 { grid-template-columns: 1fr 1fr; gap: 6mm; } .kp-k4 .kp-card { margin: 0; font-size: 9.5px; } .kp-k4 .kp-foto { width: 70px; } .kp-k4 .kp-tb td.v.nomor { font-size: 13px; } .kp-k4 .kp-bar { width: 110px; } .kp-k4 .kp-qr svg { width: 70px; height: 70px; } .kp-k4 .kp-pin td.pin { font-size: 14px; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -214,3 +301,22 @@ section.skd-card { padding: 22px 24px; } .skd-card-flat { background: #f8fafd; b
 }
 .skd-page .skd-ig .skd-eye:hover { background: rgba(31, 78, 121, .10); color: #1d3a73; }
 .skd-page .skd-ig .skd-eye:focus-visible { outline: 2px solid #4a78c9; outline-offset: 1px; }
+
+
+/* ============================================================================
+   OPSI BERGAMBAR (soal figural): tiap opsi = kartu berisi huruf + gambarnya sendiri, tersusun sebagai kisi
+   ============================================================================ */
+.skd-opsi-t img.opsi-gambar-tampil { display: block; max-width: 100%; height: auto; max-height: calc(220px * var(--skala, 1)); object-fit: contain; margin-top: .5em; }
+.skd-exam #question-card .skd-opsi-list.skd-opsi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5em, 1fr)); gap: .9em; }
+.skd-exam #question-card .skd-opsi-grid .skd-opsi { flex-direction: column; align-items: center; justify-content: flex-start; gap: .55em; padding: .8em .7em 1em; text-align: center; }
+.skd-exam #question-card .skd-opsi-grid .skd-opsi-t { width: 100%; }
+.skd-exam #question-card .skd-opsi-grid .skd-opsi-t img.opsi-gambar-tampil { margin: 0 auto; width: 100%; max-height: calc(190px * var(--skala, 1)); background: #fff; border-radius: 6px; }
+/* detail jawaban, pratinjau, hasil */
+.opsi-list.opsi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: .6rem; }
+.opsi-list.opsi-grid .opsi-item { flex-direction: column; align-items: center; text-align: center; }
+.opsi-list.opsi-grid .opsi-konten img { display: block; max-width: 100%; max-height: 150px; margin: .3rem auto 0; object-fit: contain; }
+@media print {
+  #cetak-area .opsi-list.opsi-grid { display: block; }
+  #cetak-area .opsi-list.opsi-grid .opsi-item { display: inline-block; width: 19%; vertical-align: top; text-align: center; margin: 0 .5% 4px; }
+  #cetak-area .opsi-list.opsi-grid .opsi-konten img { max-height: 26mm; max-width: 100%; margin: 2px auto 0; }
+}

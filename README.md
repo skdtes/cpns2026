@@ -68,6 +68,28 @@ Kolom **Kategori** di file (TWK / TIU / TKP) kini dipakai per baris saat impor, 
 * Jumlah yang diminta ikut tersimpan di `ambang_json` (tanpa perubahan kolom/`Code.gs`), sehingga **Kelola Ujian** punya kolom **Komposisi Soal** (mis. `TIU 30 / 35 — kurang 5`), termasuk menandai soal yang sudah dihapus dari Bank Soal.
 * Ujian lama (belum menyimpan jumlah yang diminta) cukup dibuka lewat **Ubah** lalu **Simpan** sekali.
 
+## Perbaikan Code.gs (v6)
+Peserta pertama yang menekan *Mulai Ujian* mendapat galat "Jumlah baris dalam rentang setidaknya harus 1" bila sheet Sesi masih kosong. `findRowIndexById_` kini aman untuk sheet yang hanya berisi baris judul. **Ganti isi `Code.gs` lalu Deploy › Manage deployments › New version.**
+
+## Tampilan layar ujian (v7)
+Header navy, panel navigasi & kartu soal lebih rapi, bilah tombol menempel di dasar layar, watermark guru tidak lagi menimpa header. Kontrol **Ukuran teks** (A− / persen / A+) kini mengubah seluruh isi soal: pertanyaan, pilihan jawaban, rumus, dan tabel (85%–175%, tersimpan di perangkat).
+
+## Perbaikan v8
+Overlay "Jawaban Terkirim — Menyiapkan hasil" kini ditutup otomatis saat layar hasil tampil (dulu macet menutupi hasil).
+
+## Cetak sertifikat (v9)
+Sertifikat dicetak/disimpan PDF pada kertas **A4 landscape tanpa margin** (dulu keluar sebagai A4 potret dan hanya mengisi separuh halaman karena aturan cetak detail jawaban menimpanya). Isi sertifikat juga dipusatkan secara vertikal. Di jendela cetak Chrome, biarkan *Margins: Default/None* dan *Layout: Landscape* otomatis terpilih.
+
+## Pecahan otomatis (v10)
+Teks pecahan biasa seperti `1/15` atau `2/30` di soal, opsi, dan pembahasan otomatis tampil sebagai **pecahan asli** (pembilang di atas, penyebut di bawah) di layar ujian, detail jawaban, pratinjau, dan hasil cetak. Data di Bank Soal tidak diubah. Tidak dikonversi: tanggal/nomor berantai (17/08/1945), nomor peraturan (UU No. 12/2020, Pasal 28/1945), angka lebih dari 3 digit, satuan (km/jam), dan bagian yang sudah di dalam `$...$`. Untuk mematikan, ubah `PECAHAN_OTOMATIS_ = false` di `app.js`.
+
+## Soal figural: opsi berupa gambar (v11)
+* **Impor Excel:** pada kolom Opsi A–E tulis `gambar:nama-file.png` (atau tautan gambar/Google Drive), lalu pilih semua file gambarnya di *Pilih Gambar Pendukung*. Boleh dengan keterangan: `gambar:a.png | Lingkaran`. Gambar yang tidak ditemukan dilaporkan sebagai peringatan. Pada file Word, tempel gambar langsung ke sel Opsi.
+* **Gambar ditempel langsung di Excel (v13):** *Insert › Pictures*/Ctrl+V ke sel Opsi A–E atau kolom Gambar (juga gambar "Place in Cell" Excel 365) terbaca otomatis saat impor `.xlsx`; gambar yang sama dipakai sekali. Pojok kiri-atas gambar menentukan selnya. Format EMF/WMF tidak didukung (simpan sebagai PNG/JPG).
+* **Tampilan:** bila semua opsi berupa gambar, opsi tampil sebagai **kisi kartu** (huruf + gambar masing-masing) di layar ujian, pratinjau, detail jawaban, dan cetak.
+* **Alat pemotong gambar** (`alat-potong-gambar.html`, buka langsung di peramban): memecah satu gambar gabungan (soal + pilihan A–E) menjadi `nama_soal.png`, `nama_A.png` ... `nama_E.png` secara otomatis, lengkap dengan baris siap-tempel untuk Excel dan unduhan .zip.
+* Sheet kedua template Excel kini bernama **Petunjuk** (memuat rumus dan gambar opsi).
+
 ## Dihapus dari versi sebelumnya
 Seluruh fitur survei (Survei Karakter/Sulingjar) dan identitas ANBK/TKA/sekolah. Sheet `Survei`/`PaketSurvei` lama tidak dipakai lagi (boleh dihapus manual).
 

@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
-<link rel="stylesheet" href="skd.css?v=72">
+<link rel="stylesheet" href="skd.css?v=80">
 <!-- Font Awesome: ikon sidebar & tombol (gaya dashboard modern) -->
 <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
 <!-- KaTeX: render persamaan matematika (LaTeX) di dalam soal -->
@@ -311,7 +311,7 @@
             <div class="aksi-card" onclick="document.getElementById('input-import-soal').click()">
               <div class="aksi-card-ico">📄</div>
               <div class="aksi-card-judul">Import dari Excel (.xlsx)</div>
-              <div class="aksi-card-desc">Isi tabel: 1 baris = 1 soal. Tipe PG (TWK/TIU), TKP (kolom Kunci = skor 1–5 tiap opsi), atau Kecukupan (pilihan baku otomatis). Rumus matematika: tulis LaTeX di antara tanda $ ... $ (lihat sheet "Petunjuk Rumus" di template).</div>
+              <div class="aksi-card-desc">Isi tabel: 1 baris = 1 soal. Tipe PG (TWK/TIU), TKP (kolom Kunci = skor 1–5 tiap opsi), atau Kecukupan (pilihan baku otomatis). Rumus matematika: tulis LaTeX di antara tanda $ ... $ (lihat sheet "Petunjuk" di template). Soal figural: <b>tempel gambar langsung</b> ke sel Opsi A–E / kolom Gambar di Excel (otomatis terbaca), atau tulis <code>gambar:nama-file.png</code> lalu pilih file gambarnya di bawah; punya satu gambar gabungan? Pecah dengan <a href="alat-potong-gambar.html" target="_blank" rel="noopener">alat pemotong gambar</a>.</div>
               <div class="aksi-card-aksi-row">
                 <button type="button" class="secondary small" onclick="event.stopPropagation();Guru.unduhTemplateSoal()">⬇ Unduh Template</button>
                 <label class="secondary small aksi-card-pilih-gambar" onclick="event.stopPropagation()">
@@ -1256,7 +1256,7 @@
     </aside>
     <section class="skd-qpanel">
       <div class="skd-q-top"><h2 id="u-nomor">Soal 1 dari 1</h2><span class="skd-badge-subtes" id="u-subtes"></span>
-        <div class="skd-font" role="group" aria-label="Ukuran font soal"><span>Font:</span><button type="button" id="skala-kecil" class="skd-fs fs1" onclick="SkalaSoal.ubah(-1)" aria-label="Kecil">A</button><button type="button" id="skala-sedang" class="skd-fs fs2" onclick="SkalaSoal.reset()" aria-label="Sedang">A</button><button type="button" id="skala-besar" class="skd-fs fs3" onclick="SkalaSoal.ubah(1)" aria-label="Besar">A</button><span id="skala-nilai" class="hidden"></span></div>
+        <div class="skd-font" role="group" aria-label="Ukuran teks soal"><span class="skd-font-lbl"><i class="fa-solid fa-text-height"></i> Ukuran teks</span><button type="button" id="skala-kecil" class="skd-fs" onclick="SkalaSoal.ubah(-1)" aria-label="Perkecil teks" title="Perkecil teks">A<small>&minus;</small></button><button type="button" id="skala-sedang" class="skd-fs skd-fs-nilai" onclick="SkalaSoal.reset()" aria-label="Ukuran normal" title="Klik untuk kembali ke ukuran normal"><span id="skala-nilai">100%</span></button><button type="button" id="skala-besar" class="skd-fs" onclick="SkalaSoal.ubah(1)" aria-label="Perbesar teks" title="Perbesar teks">A<small>+</small></button></div>
       </div>
       <div class="question-card" id="question-card">Memuat soal...</div>
       <div class="skd-nav">
@@ -1385,7 +1385,7 @@
 </div>
 
 <script src="config.js"></script>
-<script src="app.js?v=75"></script>
-<script src="skd.js?v=72"></script>
+<script src="app.js?v=82"></script>
+<script src="skd.js?v=80"></script>
 </body>
 </html>

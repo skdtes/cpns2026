@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alat Pemotong Gambar Soal Figural</title>
+<style>
+  :root { --navy: #1e3a8a; --line: #dbe2ee; --bg: #eef1f6; --muted: #667085; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 'Segoe UI', Arial, sans-serif; color: #1f2937; background: var(--bg); }
+  header { background: linear-gradient(100deg, #14295a, #1e3a8a); color: #fff; padding: 16px 24px; }
+  header h1 { margin: 0; font-size: 20px; } header p { margin: 4px 0 0; opacity: .85; font-size: 13.5px; }
+  main { max-width: 1180px; margin: 18px auto; padding: 0 16px 40px; display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 18px; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+  .card h2 { margin: 0 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--navy); }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 3px; }
+  input[type=text], input[type=number], input[type=file] { width: 100%; padding: 8px 10px; border: 1px solid #c7ced8; border-radius: 8px; font: inherit; background: #fff; }
+  input[type=range] { width: 100%; }
+  .row { display: flex; gap: 10px; } .row > * { flex: 1; }
+  .val { float: right; font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 9px 14px; cursor: pointer; background: var(--navy); color: #fff; }
+  button.sek { background: #fff; color: var(--navy); border: 1px solid #b7c3e0; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .kanvas { position: relative; overflow: auto; border: 1px dashed #b7c3e0; border-radius: 8px; background: #fafbfd; text-align: center; padding: 8px; }
+  canvas { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  .hasil { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 12px; }
+  .hasil figure { margin: 0; border: 1px solid var(--line); border-radius: 8px; padding: 6px; text-align: center; background: #fff; }
+  .hasil img { max-width: 100%; max-height: 120px; object-fit: contain; }
+  .hasil figcaption { font-size: 12px; color: var(--muted); word-break: break-all; margin-top: 4px; }
+  .info { font-size: 13px; color: var(--muted); } .info b { color: #1f2937; }
+  .langkah { margin: 0; padding-left: 18px; font-size: 13.5px; } .langkah li { margin: 4px 0; }
+  pre { background: #f6f8fc; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 12.5px; overflow: auto; white-space: pre-wrap; }
+  .pesan { font-size: 13px; margin-top: 8px; min-height: 1.2em; } .pesan.err { color: #b91c1c; } .pesan.ok { color: #15803d; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Alat Pemotong Gambar Soal Figural</h1>
+  <p>Pecah satu gambar gabungan (soal + pilihan A–E) menjadi gambar soal dan satu gambar untuk tiap opsi. Semua diproses di peramban Anda; tidak ada yang diunggah.</p>
+</header>
+<main>
+  <section>
+    <div class="card">
+      <h2>1. Pilih gambar gabungan</h2>
+      <input type="file" id="berkas" accept="image/*">
+      <label>Awalan nama file <span class="val">mis. figural01</span></label>
+      <input type="text" id="awalan" value="figural01">
+      <label>Jumlah opsi <span class="val" id="v-n">5</span></label>
+      <input type="range" id="n" min="2" max="8" value="5">
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>2. Atur area opsi</h2>
+      <label>Batas atas baris opsi <span class="val" id="v-atas">0%</span></label><input type="range" id="atas" min="0" max="100" step="0.1" value="55">
+      <label>Batas bawah baris opsi <span class="val" id="v-bawah">0%</span></label><input type="range" id="bawah" min="0" max="100" step="0.1" value="88">
+      <div class="info" style="margin-top:6px">Geser <b>batas bawah</b> agar huruf A, B, C... di bawah gambar <b>tidak ikut</b> terpotong.</div>
+      <label>Tepi kiri <span class="val" id="v-kiri">0%</span></label><input type="range" id="kiri" min="0" max="50" step="0.1" value="0">
+      <label>Tepi kanan <span class="val" id="v-kanan">0%</span></label><input type="range" id="kanan" min="50" max="100" step="0.1" value="100">
+      <label>Ruang kosong di sekeliling tiap opsi <span class="val" id="v-pad">6 px</span></label><input type="range" id="pad" min="0" max="40" value="6">
+      <div class="btns">
+        <button type="button" class="sek" id="btn-auto">Deteksi otomatis</button>
+        <button type="button" class="sek" id="btn-rata">Bagi sama rata</button>
+      </div>
+      <div class="pesan" id="pesan"></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>3. Unduh</h2>
+      <label style="display:flex;gap:8px;align-items:center;font-weight:400"><input type="checkbox" id="cek-soal" checked> Sertakan gambar soal (bagian di atas baris opsi)</label>
+      <div class="btns">
+        <button type="button" id="btn-proses" disabled>Potong sekarang</button>
+        <button type="button" class="sek" id="btn-zip" disabled>Unduh semua (.zip)</button>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div class="card">
+      <h2>Pratinjau</h2>
+      <div class="kanvas"><canvas id="kv" width="10" height="10"></canvas></div>
+      <div class="info" id="info" style="margin-top:6px">Belum ada gambar. Pilih gambar gabungan di sebelah kiri.</div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Hasil potongan</h2>
+      <div class="hasil" id="hasil"><span class="info">Belum ada.</span></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h2>Cara memakainya di template soal</h2>
+      <ol class="langkah">
+        <li>Unduh .zip lalu ekstrak, atau pakai file hasil unduhan langsung.</li>
+        <li>Di template Excel, isi kolom <b>Gambar</b> dengan nama file gambar soal, dan kolom <b>Opsi A–E</b> dengan <code>gambar:nama-file.png</code> (disalin otomatis di bawah).</li>
+        <li>Saat impor, pada <b>Pilih Gambar Pendukung</b> pilih <b>semua</b> file hasil potongan (Ctrl+A di jendela pilih file).</li>
+      </ol>
+      <pre id="contoh">Belum ada.</pre>
+      <div class="btns"><button type="button" class="sek" id="btn-salin" disabled>Salin baris untuk Excel</button></div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  let img = null, hasilBlob = [], awal = 'figural01';
+
+  // ---------- algoritma murni (mudah diuji) ----------
+  // piksel "berisi" = tidak putih. Mengembalikan profil jumlah piksel berisi per baris/kolom.
+  function profil(data, w, h, x0, y0, x1, y1, ambang) {
+    const baris = new Array(y1 - y0).fill(0), kolom = new Array(x1 - x0).fill(0);
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const i = (y * w + x) * 4; const a = data[i + 3];
+      const gelap = a > 40 && (data[i] < ambang || data[i + 1] < ambang || data[i + 2] < ambang);
+      if (gelap) { baris[y - y0]++; kolom[x - x0]++; }
+    }
+    return { baris, kolom };
+  }
+  // potong profil menjadi "pita" (rentang berurutan yang berisi), menggabungkan celah kecil
+  function pita(arr, celahMin) {
+    const out = []; let mulai = -1, kosong = 0;
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i] > 0) { if (mulai < 0) mulai = i; kosong = 0; }
+      else if (mulai >= 0) { kosong++; if (kosong >= celahMin) { out.push([mulai, i - kosong + 1]); mulai = -1; kosong = 0; } }
+    }
+    if (mulai >= 0) out.push([mulai, arr.length - kosong]);
+    return out;
+  }
+  // tebak baris opsi: pita vertikal terakhir yang cukup tinggi (huruf A,B,C di bawahnya biasanya tipis)
+  function tebakBarisOpsi(data, w, h) {
+    const p = profil(data, w, h, 0, 0, w, h, 200);
+    const celah = Math.max(3, Math.round(h * 0.012));
+    const bs = pita(p.baris, celah); if (!bs.length) return null;
+    const tinggiMaks = Math.max.apply(null, bs.map(b => b[1] - b[0]));
+    const besar = bs.filter(b => (b[1] - b[0]) >= tinggiMaks * 0.35);
+    return besar.length ? besar[besar.length - 1] : bs[bs.length - 1];
+  }
+  // tebak n kolom dalam rentang baris tertentu: n pita horizontal terbesar
+  function tebakKolom(data, w, h, y0, y1, n) {
+    const p = profil(data, w, h, 0, y0, w, y1, 200);
+    for (let celah = Math.max(2, Math.round(w * 0.012)); celah >= 2; celah--) {
+      const ks = pita(p.kolom, celah);
+      if (ks.length === n) return ks;
+      if (ks.length > n) { // buang yang paling sempit (mis. noise) sampai tersisa n
+        const urut = ks.slice().sort((a, b) => (b[1] - b[0]) - (a[1] - a[0])).slice(0, n).sort((a, b) => a[0] - b[0]);
+        if (urut.length === n) return urut;
+      }
+    }
+    return null;
+  }
+
+  // ---------- UI ----------
+  function nilai(id) { return Number($(id).value); }
+  function perbaruiLabel() {
+    $('v-n').textContent = nilai('n'); $('v-atas').textContent = nilai('atas').toFixed(1) + '%'; $('v-bawah').textContent = nilai('bawah').toFixed(1) + '%';
+    $('v-kiri').textContent = nilai('kiri').toFixed(1) + '%'; $('v-kanan').textContent = nilai('kanan').toFixed(1) + '%'; $('v-pad').textContent = nilai('pad') + ' px';
+  }
+  let sel = null; // sel kolom hasil deteksi (piksel), null = bagi sama rata
+  function daftarSel() {
+    const w = img.naturalWidth, h = img.naturalHeight, n = nilai('n');
+    const y0 = Math.round(h * nilai('atas') / 100), y1 = Math.round(h * nilai('bawah') / 100);
+    const x0 = Math.round(w * nilai('kiri') / 100), x1 = Math.round(w * nilai('kanan') / 100);
+    const pad = nilai('pad'); const out = [];
+    if (sel && sel.length === n) {
+      sel.forEach(k => out.push([Math.max(0, k[0] - pad), y0, Math.min(w, k[1] + pad), y1]));
+    } else {
+      const lebar = (x1 - x0) / n;
+      for (let i = 0; i < n; i++) out.push([Math.round(x0 + i * lebar), y0, Math.round(x0 + (i + 1) * lebar), y1]);
+    }
+    return { sel: out, y0, w, h };
+  }
+  function gambarPratinjau() {
+    if (!img) return; perbaruiLabel();
+    const kv = $('kv'); const w = img.naturalWidth, h = img.naturalHeight; kv.width = w; kv.height = h;
+    const c = kv.getContext('2d'); c.drawImage(img, 0, 0);
+    const d = daftarSel(); c.lineWidth = Math.max(2, w / 400);
+    c.fillStyle = 'rgba(30,58,138,.07)'; c.fillRect(0, 0, w, d.y0); c.strokeStyle = '#16a34a'; c.strokeRect(0, 0, w, d.y0);
+    c.font = 'bold ' + Math.max(14, w / 45) + 'px Arial'; c.fillStyle = '#16a34a'; c.fillText('SOAL', 8, Math.max(18, w / 40));
+    d.sel.forEach((s, i) => { c.strokeStyle = '#dc2626'; c.fillStyle = 'rgba(220,38,38,.08)'; c.fillRect(s[0], s[1], s[2] - s[0], s[3] - s[1]); c.strokeRect(s[0], s[1], s[2] - s[0], s[3] - s[1]); c.fillStyle = '#dc2626'; c.fillText(String.fromCharCode(65 + i), s[0] + 6, s[1] + Math.max(18, w / 40)); });
+    $('info').innerHTML = 'Ukuran gambar <b>' + w + ' × ' + h + ' px</b>. Kotak hijau = gambar soal, kotak merah = potongan opsi.';
+  }
+  function pesan(t, k) { const p = $('pesan'); p.textContent = t || ''; p.className = 'pesan' + (k ? ' ' + k : ''); }
+  function pikselGambar() { const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; const x = c.getContext('2d', { willReadFrequently: true }); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0); return x.getImageData(0, 0, c.width, c.height); }
+
+  $('berkas').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const im = new Image(); im.onload = () => { img = im; sel = null; hasilBlob = []; $('hasil').innerHTML = '<span class="info">Belum ada.</span>'; $('btn-proses').disabled = false; $('btn-zip').disabled = true; $('btn-salin').disabled = true;
+      const nama = f.name.replace(/\.[^.]+$/, '').replace(/[^\w\-]+/g, '_'); if (nama && $('awalan').value === 'figural01') $('awalan').value = nama;
+      otomatis(true); };
+    im.onerror = () => pesan('File gambar tidak dapat dibaca.', 'err'); im.src = URL.createObjectURL(f);
+  });
+  ['n', 'atas', 'bawah', 'kiri', 'kanan', 'pad'].forEach(id => $(id).addEventListener('input', () => { if (id !== 'pad') sel = null; gambarPratinjau(); }));
+  function setSlider(id, v) { $(id).value = v; }
+  function otomatis(diam) {
+    if (!img) return; const px = pikselGambar(); const w = px.width, h = px.height;
+    const br = tebakBarisOpsi(px.data, w, h);
+    if (br) { setSlider('atas', Math.max(0, (br[0] - 4) / h * 100)); setSlider('bawah', Math.min(100, (br[1] + 4) / h * 100)); }
+    const n = nilai('n'); const y0 = Math.round(h * nilai('atas') / 100), y1 = Math.round(h * nilai('bawah') / 100);
+    const ks = tebakKolom(px.data, w, h, y0, y1, n);
+    if (ks) { sel = ks; setSlider('kiri', Math.max(0, ks[0][0] / w * 100 - 1)); setSlider('kanan', Math.min(100, ks[n - 1][1] / w * 100 + 1)); pesan('Terdeteksi ' + n + ' opsi. Periksa kotak merah pada pratinjau, lalu klik "Potong sekarang".', 'ok'); }
+    else { sel = null; pesan((diam ? 'Opsi belum bisa dideteksi otomatis. ' : 'Deteksi gagal. ') + 'Atur batas atas/bawah secara manual lalu klik "Bagi sama rata".', 'err'); }
+    gambarPratinjau();
+  }
+  $('btn-auto').addEventListener('click', () => otomatis(false));
+  $('btn-rata').addEventListener('click', () => { sel = null; pesan('Dibagi sama rata antara tepi kiri dan kanan.', 'ok'); gambarPratinjau(); });
+
+  function potong(x0, y0, x1, y1) {
+    const c = document.createElement('canvas'); c.width = Math.max(1, x1 - x0); c.height = Math.max(1, y1 - y0);
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, x0, y0, c.width, c.height, 0, 0, c.width, c.height);
+    return new Promise(r => c.toBlob(b => r(b), 'image/png'));
+  }
+  $('btn-proses').addEventListener('click', async () => {
+    if (!img) return; awal = ($('awalan').value || 'figural').trim().replace(/[^\w\-]+/g, '_') || 'figural';
+    const d = daftarSel(); hasilBlob = [];
+    if ($('cek-soal').checked && d.y0 > 8) hasilBlob.push({ nama: awal + '_soal.png', blob: await potong(0, 0, d.w, d.y0) });
+    for (let i = 0; i < d.sel.length; i++) { const s = d.sel[i]; hasilBlob.push({ nama: awal + '_' + String.fromCharCode(65 + i) + '.png', blob: await potong(s[0], s[1], s[2], s[3]) }); }
+    const box = $('hasil'); box.innerHTML = '';
+    hasilBlob.forEach(h => { const f = document.createElement('figure'); const im = document.createElement('img'); im.src = URL.createObjectURL(h.blob); const cap = document.createElement('figcaption'); cap.textContent = h.nama + ' · ';
+      const a = document.createElement('a'); a.href = im.src; a.download = h.nama; a.textContent = 'unduh'; cap.appendChild(a); f.appendChild(im); f.appendChild(cap); box.appendChild(f); });
+    $('btn-zip').disabled = false; $('btn-salin').disabled = false;
+    const huruf = d.sel.map((_, i) => String.fromCharCode(65 + i));
+    const kolSoal = hasilBlob.some(h => /_soal\.png$/.test(h.nama)) ? awal + '_soal.png' : '';
+    $('contoh').textContent = 'Gambar\t' + huruf.map(h => 'Opsi ' + h).join('\t') + '\n' + kolSoal + '\t' + huruf.map(h => 'gambar:' + awal + '_' + h + '.png').join('\t');
+  });
+  $('btn-salin').addEventListener('click', () => { const t = $('contoh').textContent; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => pesan('Disalin. Tempel ke sel Excel (kolom Gambar, lalu Opsi A–E).', 'ok')).catch(() => pesan('Salin manual teks di kotak contoh.', 'err')); });
+
+  // ---------- ZIP tanpa kompresi ----------
+  const TAB = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; } return t; })();
+  function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = TAB[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function zipSimpan(files) {
+    const enc = new TextEncoder(); const bagian = [], pusat = []; let offset = 0;
+    files.forEach(f => {
+      const nama = enc.encode(f.nama), crc = crc32(f.data), uk = f.data.length;
+      const lh = new DataView(new ArrayBuffer(30)); lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(12, 0x21, true);
+      lh.setUint32(14, crc, true); lh.setUint32(18, uk, true); lh.setUint32(22, uk, true); lh.setUint16(26, nama.length, true);
+      bagian.push(new Uint8Array(lh.buffer), nama, f.data);
+      const ch = new DataView(new ArrayBuffer(46)); ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(14, 0x21, true);
+      ch.setUint32(16, crc, true); ch.setUint32(20, uk, true); ch.setUint32(24, uk, true); ch.setUint16(28, nama.length, true); ch.setUint32(42, offset, true);
+      pusat.push(new Uint8Array(ch.buffer), nama); offset += 30 + nama.length + uk;
+    });
+    const ukPusat = pusat.reduce((a, b) => a + b.length, 0);
+    const end = new DataView(new ArrayBuffer(22)); end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, ukPusat, true); end.setUint32(16, offset, true);
+    return new Blob(bagian.concat(pusat, [new Uint8Array(end.buffer)]), { type: 'application/zip' });
+  }
+  $('btn-zip').addEventListener('click', async () => {
+    const files = []; for (const h of hasilBlob) files.push({ nama: h.nama, data: new Uint8Array(await h.blob.arrayBuffer()) });
+    const url = URL.createObjectURL(zipSimpan(files)); const a = document.createElement('a'); a.href = url; a.download = awal + '_potongan.zip'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+  });
+  perbaruiLabel();
+  window.__alatPotong = { profil, pita, tebakBarisOpsi, tebakKolom, crc32, zipSimpan }; // untuk pengujian
+})();
+</script>
+</body>
+</html>

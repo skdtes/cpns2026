@@ -934,7 +934,7 @@ const SKD_TEMPLATE_ROWS_ = [
 ];
 // Lembar "Petunjuk Rumus" pada template Excel: cara menulis rumus matematika agar tampil rapi di layar ujian.
 const PETUNJUK_RUMUS_ROWS_ = [
-  ['PETUNJUK MENULIS RUMUS MATEMATIKA', '', ''],
+  ['PETUNJUK MENGISI TEMPLATE: RUMUS MATEMATIKA & GAMBAR OPSI', '', ''],
   ['Apit rumus dengan tanda $ di awal dan akhir, lalu tulis dalam format LaTeX. Rumus boleh dicampur dengan kalimat biasa dalam satu sel (Pertanyaan, Opsi A–E, maupun Pembahasan).', '', ''],
   ['Pada file Word (.docx) cukup pakai Insert > Equation; rumusnya otomatis dikonversi saat impor.', '', ''],
   ['', '', ''],
@@ -960,7 +960,21 @@ const PETUNJUK_RUMUS_ROWS_ = [
   ['1. Jangan lupa tanda $ pembuka DAN penutup. Tanpa itu rumus tampil sebagai teks mentah.', '', ''],
   ['2. Jangan memakai tanda $ untuk mata uang; tulis "Rp" (mis. Rp5.000).', '', ''],
   ['3. Pangkat atau indeks lebih dari satu karakter wajib diberi kurung kurawal, mis. $x^{10}$ (bukan $x^10$).', '', ''],
-  ['4. Setelah impor, buka Bank Soal > Pratinjau untuk memastikan semua rumus tampil rapi.', '', '']
+  ['4. Setelah impor, buka Bank Soal > Pratinjau untuk memastikan semua rumus tampil rapi.', '', ''],
+  ['', '', ''],
+  ['SOAL FIGURAL: OPSI BERUPA GAMBAR (tiap opsi punya gambar sendiri)', '', ''],
+  ['Kolom Gambar = gambar soal. Pada kolom Opsi A–E tulis  gambar:nama-file.png  (nama file harus sama persis). Contoh:', '', ''],
+  ['Kolom', 'Isi sel', 'Keterangan'],
+  ['Gambar', 'figural01_soal.png', 'gambar soal/stimulus'],
+  ['Opsi A', 'gambar:figural01_A.png', 'opsi A berupa gambar'],
+  ['Opsi B', 'gambar:figural01_B.png', 'dst. sampai Opsi E'],
+  ['Opsi (gambar + teks)', 'gambar:figural01_C.png | Lingkaran', 'tanda | memisahkan gambar dan keterangan teks (boleh dikosongkan)'],
+  ['Langkah impor', 'pilih SEMUA file gambar pada "Pilih Gambar Pendukung"', 'nama file di sel harus sama dengan nama file yang dipilih'],
+  ['Alamat web / Drive', 'gambar:https://drive.google.com/file/d/XXXX/view', 'bisa juga memakai tautan, tanpa memilih file'],
+  ['Excel: TEMPEL gambar langsung', 'Insert > Pictures (atau Ctrl+V) ke sel Opsi A–E / kolom Gambar', 'terbaca otomatis. Pojok KIRI-ATAS gambar harus berada di sel yang dituju; kecilkan gambar agar pas di sel (atau klik kanan > Place in Cell)'],
+  ['Excel: gambar di kolom lain', 'kolom Pertanyaan / Pembahasan', 'gambar ditaruh di akhir teks sel itu; kolom lain dilewati dengan peringatan'],
+  ['Untuk file Word (.docx)', 'tempel gambar langsung ke sel Opsi', 'gambar tertanam ikut terunggah otomatis'],
+  ['Punya SATU gambar gabungan (soal + A–E)?', 'buka alat-potong-gambar.html', 'memotongnya otomatis menjadi gambar soal dan opsi A–E']
 ];
 // Lima pilihan baku soal Kecukupan Data (TIU) pada SKD CPNS.
 const OPSI_KECUKUPAN_DATA_ = [
@@ -1106,6 +1120,132 @@ function kunciHeader_(h) { return String(h || '').trim().toLowerCase().replace(/
 // teks opsi mana pun) akan DITULIS PESANNYA ke sini alih-alih diam-diam
 // dianggap opsi A -- supaya guru pasti tahu & bisa memperbaikinya sebelum
 // dipakai siswa (lihat catatan panjang di hurufKunciKeIndeks_ di atas).
+// Opsi berupa GAMBAR (soal figural) pada impor Excel/Word. Isi sel Opsi dengan salah satu bentuk berikut:
+//   gambar:figural01_A.png          -> nama file yang dipilih di "Pilih Gambar Pendukung"
+//   gambar:https://.../a.png        -> alamat gambar / tautan Google Drive
+//   figural01_A.png                 -> nama file saja (bila cocok dengan file yang dipilih)
+//   gambar:figural01_A.png | teks   -> gambar + keterangan teks
+// Hasil: { teks, gambar } (format opsi bergambar yang sudah didukung layar ujian). Sel biasa dikembalikan apa adanya.
+function opsiDariSel_(raw, petaGambar, peringatan, labelSoal, huruf) {
+  const asli = String(raw == null ? '' : raw);
+  if (/<img\b/i.test(asli)) { // gambar tertanam dari Word
+    const gambarSaja = asli.match(/<img\b[^>]*>/gi) || [];
+    const sisa = asli.replace(/<img\b[^>]*>/gi, '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!sisa && gambarSaja.length === 1) { // sel Opsi hanya berisi SATU gambar -> jadikan opsi bergambar (tampil sebagai kartu kisi)
+      const ms = gambarSaja[0].match(/\ssrc\s*=\s*["']([^"']+)["']/i);
+      if (ms && /^(https?:|data:)/i.test(ms[1])) return { teks: '', gambar: ms[1].replace(/&amp;/g, '&') };
+    }
+    return { teks: asli, gambar: '' }; // teks + gambar bercampur: biarkan sebagai teks kaya
+  }
+  const polos = asli.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().replace(/^\[(.*)\]$/, '$1').trim();
+  let ref = '', teks = '';
+  const m = polos.match(/^(?:gambar|img|image|foto)\s*[:=]\s*(\S.*?)(?:\s*\|\s*(.*))?$/i);
+  if (m) { ref = m[1].trim(); teks = (m[2] || '').trim(); }
+  else if (/^\S+\.(png|jpe?g|gif|webp|svg)$/i.test(polos) && petaGambar && petaGambar.has(polos.toLowerCase())) ref = polos;
+  else if (/^https?:\/\/\S+$/i.test(polos) && (/\.(png|jpe?g|gif|webp|svg)(\?\S*)?$/i.test(polos) || idFileDrive_(polos))) ref = polos;
+  if (!ref) return { teks: asli, gambar: '' };
+  let url = '';
+  if (/^(https?:|data:)/i.test(ref)) url = normalisasiUrlGambar(ref);
+  else if (petaGambar && petaGambar.has(ref.toLowerCase())) url = petaGambar.get(ref.toLowerCase());
+  if (!url) {
+    if (peringatan) peringatan.push(`"${labelSoal}": gambar opsi ${huruf} "${ref}" tidak ditemukan — pilih file gambar itu pada kolom "Pilih Gambar Pendukung" (nama harus sama persis), lalu impor ulang.`);
+    return { teks: asli, gambar: '' };
+  }
+  return { teks, gambar: url };
+}
+// true bila SEMUA opsi hanya berisi gambar (soal figural) -> ditampilkan sebagai kisi kartu gambar
+function opsiSemuaGambar_(opsi) {
+  if (!Array.isArray(opsi) || opsi.length < 2) return false;
+  return opsi.every(o => o && typeof o === 'object' && o.gambar && !String(o.teks || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim());
+}
+function kelasOpsiGambar_(opsi) { return opsiSemuaGambar_(opsi) ? ' opsi-grid' : ''; }
+// ----------------------------------------------------------------------------
+// GAMBAR YANG DITEMPEL DI FILE EXCEL (.xlsx)
+// Dua bentuk gambar di Excel, keduanya dibaca:
+//  (1) gambar "mengambang" (Insert > Picture / tempel) -> menempel ke sel lewat xl/drawings; sel = pojok KIRI-ATAS gambar
+//  (2) gambar "di dalam sel" (Excel 365: klik kanan gambar > Place in Cell) -> xl/richData
+// Hasil: [{ row, col (0-based, koordinat lembar), mime, base64 }]
+// ----------------------------------------------------------------------------
+const MIME_GAMBAR_XLSX_ = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp' };
+const NS_REL_ = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+function jalurRelatif_(dasar, target) { // dasar = folder berkas yang memuat rel, mis. "xl/worksheets"
+  if (!target) return '';
+  if (target.charAt(0) === '/') return target.slice(1);
+  const bagian = (dasar ? dasar.split('/') : []).concat(target.split('/')); const out = [];
+  bagian.forEach(b => { if (b === '..') out.pop(); else if (b && b !== '.') out.push(b); });
+  return out.join('/');
+}
+function kolomDariRef_(ref) { // "C5" -> { row: 4, col: 2 }
+  const m = /^([A-Z]+)(\d+)$/i.exec(ref || ''); if (!m) return null;
+  let c = 0; m[1].toUpperCase().split('').forEach(ch => { c = c * 26 + (ch.charCodeAt(0) - 64); });
+  return { row: Number(m[2]) - 1, col: c - 1 };
+}
+async function bacaGambarXlsx_(data, hasil) { // hasil: { tidakDidukung: n } diisi bila ada gambar berformat tak didukung (EMF/WMF, dst)
+  await muatPustaka_('jszip');
+  const zip = await JSZip.loadAsync(data);
+  const teks = async (p) => { const f = zip.file(p); return f ? await f.async('string') : ''; };
+  const xml = (t) => new DOMParser().parseFromString(t, 'application/xml');
+  const semua = (node, nama) => Array.from(node.getElementsByTagNameNS('*', nama));
+  const peta = (relXml) => { const m = {}; if (relXml) semua(xml(relXml), 'Relationship').forEach(r => { m[r.getAttribute('Id')] = { target: r.getAttribute('Target'), tipe: r.getAttribute('Type') || '' }; }); return m; };
+  const wbXml = xml(await teks('xl/workbook.xml'));
+  const sheet1 = semua(wbXml, 'sheet')[0]; if (!sheet1) return [];
+  const relWb = peta(await teks('xl/_rels/workbook.xml.rels'));
+  const rid = sheet1.getAttributeNS(NS_REL_, 'id') || sheet1.getAttribute('r:id');
+  if (!relWb[rid]) return [];
+  const sheetPath = jalurRelatif_('xl', relWb[rid].target);
+  const sheetDir = sheetPath.split('/').slice(0, -1).join('/'), sheetFile = sheetPath.split('/').pop();
+  const out = []; hasil = hasil || {};
+  const ambilMedia = async (path) => {
+    const ext = (path.split('.').pop() || '').toLowerCase(); const mime = MIME_GAMBAR_XLSX_[ext];
+    const f = zip.file(path); if (!f) return null;
+    if (!mime) { hasil.tidakDidukung = (hasil.tidakDidukung || 0) + 1; return null; }
+    return { mime, base64: await f.async('base64') };
+  };
+  // (1) gambar mengambang lewat drawing
+  const relSheet = peta(await teks(sheetDir + '/_rels/' + sheetFile + '.rels'));
+  const idGambarMengambang = Object.keys(relSheet).filter(k => /\/drawing$/.test(relSheet[k].tipe));
+  for (const k of idGambarMengambang) {
+    const drawPath = jalurRelatif_(sheetDir, relSheet[k].target);
+    const drawDir = drawPath.split('/').slice(0, -1).join('/'), drawFile = drawPath.split('/').pop();
+    const dx = await teks(drawPath); if (!dx) continue;
+    const relDraw = peta(await teks(drawDir + '/_rels/' + drawFile + '.rels'));
+    const dd = xml(dx);
+    for (const jangkar of semua(dd, 'twoCellAnchor').concat(semua(dd, 'oneCellAnchor'))) {
+      const dari = semua(jangkar, 'from')[0]; const pic = semua(jangkar, 'pic')[0]; if (!dari || !pic) continue;
+      const blip = semua(pic, 'blip')[0]; if (!blip) continue;
+      const embed = blip.getAttributeNS(NS_REL_, 'embed') || blip.getAttribute('r:embed');
+      if (!relDraw[embed]) continue;
+      const col = Number((semua(dari, 'col')[0] || {}).textContent), row = Number((semua(dari, 'row')[0] || {}).textContent);
+      const media = await ambilMedia(jalurRelatif_(drawDir, relDraw[embed].target));
+      if (media && !isNaN(col) && !isNaN(row)) out.push({ row, col, mime: media.mime, base64: media.base64 });
+    }
+  }
+  // (2) gambar di dalam sel (richData): sel bertanda vm="n"
+  const sx = await teks(sheetPath);
+  const selVm = []; const reSel = /<c\b[^>]*>/g; let mm;
+  while ((mm = reSel.exec(sx))) { const tag = mm[0]; const r = /\sr="([A-Z]+\d+)"/.exec(tag), v = /\svm="(\d+)"/.exec(tag); if (r && v) selVm.push({ ref: r[1], vm: Number(v[1]) }); }
+  if (selVm.length) {
+    const meta = xml(await teks('xl/metadata.xml'));
+    const rvbIdx = []; semua(semua(meta, 'futureMetadata').find(f => f.getAttribute('name') === 'XLRICHVALUE') || meta, 'bk').forEach(bk => { const rvb = semua(bk, 'rvb')[0]; rvbIdx.push(rvb ? Number(rvb.getAttribute('i')) : null); });
+    const vmBk = semua(semua(meta, 'valueMetadata')[0] || meta, 'bk');
+    const struktur = semua(xml(await teks('xl/richData/rdrichvaluestructure.xml')), 's').map(sn => semua(sn, 'k').map(k => k.getAttribute('n')));
+    const nilaiRv = semua(xml(await teks('xl/richData/rdrichvalue.xml')), 'rv');
+    const relRvXml = xml(await teks('xl/richData/richValueRel.xml')); const daftarRel = semua(relRvXml, 'rel').map(r => r.getAttributeNS(NS_REL_, 'id') || r.getAttribute('r:id'));
+    const relRv = peta(await teks('xl/richData/_rels/richValueRel.xml.rels'));
+    for (const sv of selVm) {
+      const rc = vmBk[sv.vm - 1] && semua(vmBk[sv.vm - 1], 'rc')[0]; if (!rc) continue;
+      const i = rvbIdx[Number(rc.getAttribute('v'))]; const rv = nilaiRv[i]; if (!rv) continue;
+      const sIdx = Number(rv.getAttribute('s') || 0); const kunci = struktur[sIdx] || [];
+      const posisi = kunci.indexOf('_rvRel:LocalImageIdentifier'); if (posisi < 0) continue;
+      const relIdx = Number((semua(rv, 'v')[posisi] || {}).textContent); const rId = daftarRel[relIdx];
+      if (!relRv[rId]) continue;
+      const media = await ambilMedia(jalurRelatif_('xl/richData', relRv[rId].target)); const pos = kolomDariRef_(sv.ref);
+      if (media && pos) out.push({ row: pos.row, col: pos.col, mime: media.mime, base64: media.base64 });
+    }
+  }
+  return out;
+}
+
 function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGambar, peringatan) {
   const ambil = (nama) => { const i = headerIdx[nama]; return i == null ? '' : amankanRumusTeks_(String(nilai[i] == null ? '' : nilai[i]).trim()); };
   const pertanyaan = ambil('pertanyaan');
@@ -1201,7 +1341,8 @@ function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGamb
   }
   if (tipe === 'tkp') {
     // TKP: Opsi A-E + kolom Kunci berisi SKOR tiap opsi (1-5) berurutan A..E, mis. "3,5,2,1,4" atau "A=3,B=5,C=2,D=1,E=4".
-    const opsiT = ['a', 'b', 'c', 'd', 'e'].map(h => ambil('opsi' + h)).filter(Boolean);
+    const opsiT = ['a', 'b', 'c', 'd', 'e'].map(h => ({ h, v: ambil('opsi' + h) })).filter(x => x.v)
+      .map(x => { const o = opsiDariSel_(x.v, petaGambar, peringatan, potonganPertanyaan(pertanyaan), x.h.toUpperCase()); return o.gambar ? o : o.teks; });
     item.opsi_json = JSON.stringify(opsiT);
     const skorStr = ambil('kunci') || ambil('kuncijawaban') || ambil('skor');
     const skor = (skorStr.replace(/<[^>]*>/g, '').match(/[1-5]/g) || []).map(Number);
@@ -1211,9 +1352,11 @@ function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGamb
     return item;
   }
   if (tipe === 'pilihan_ganda' || tipe === 'checkbox' || tipe === 'benar_salah') {
-    const opsi = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(h => ambil('opsi' + h)).filter(Boolean);
+    const opsiParsed = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(h => ({ h, v: ambil('opsi' + h) })).filter(x => x.v)
+      .map(x => opsiDariSel_(x.v, petaGambar, peringatan, potonganPertanyaan(pertanyaan), x.h.toUpperCase()));
+    const opsi = opsiParsed.map(o => o.gambar ? o : o.teks);
     item.opsi_json = JSON.stringify(opsi.length ? opsi : ['Benar', 'Salah']);
-    const opsiUntukCocok = opsi.length ? opsi : ['Benar', 'Salah'];
+    const opsiUntukCocok = opsi.length ? opsiParsed.map(o => o.teks) : ['Benar', 'Salah'];
     const kunciStr = ambil('kunci') || ambil('kuncijawaban');
     if (tipe === 'checkbox') {
       const idx = kunciStr.split(/[,|]/).map(s => hurufKunciKeIndeks_(s, opsiUntukCocok)).filter(i => i !== -1);
@@ -1815,6 +1958,8 @@ const CSS_RUMUS = `
 .skd-opsi-t, .skd-pertanyaan, .pertanyaan { overflow-wrap: anywhere; }
 .skd-opsi-t .katex-display { margin: .3em 0; text-align: left; }
 .skd-opsi-t .katex-display > .katex { text-align: left; }
+.ada-pecahan { line-height: 1.95; }
+.katex .mfrac .frac-line { border-bottom-width: .06em; }
 .katex-error { color: #b91c1c; font-family: monospace; font-size: .9em; }
 @media (max-width: 640px) { .katex-display { margin: .5em 0; } .skd-pertanyaan .katex, .question-card .katex { font-size: 1.05em; } }
 /* ===== Keterangan jumlah soal ujian ===== */
@@ -2428,13 +2573,35 @@ const OPSI_RUMUS_ = {
   throwOnError: false,
   strict: 'ignore'
 };
+// Pecahan yang diketik sebagai teks biasa ("1/15", "2/30") otomatis ditampilkan sebagai pecahan asli (\dfrac) saat soal/pembahasan
+// ditampilkan; data soal di Bank Soal TIDAK diubah. Dikecualikan: tanggal/nomor berantai (17/08/1945), nomor peraturan (No. 12/2020),
+// angka >3 digit, satuan (km/jam) dan bagian yang sudah berada di dalam $...$. Matikan dengan PECAHAN_OTOMATIS_ = false.
+const PECAHAN_OTOMATIS_ = true;
+const RE_PECAHAN_TEKS_ = /(?<![\w/.,:\-]|(?:No|Nomor|Pasal|UU|PP|Perpres|Perda|Permen|Ayat|Tahun|Tanggal|Tgl)\.?\s*)(\d{1,3})\/(\d{1,3})(?![\w/]|[.,]\d)/gi;
+const RE_BAGI_RUMUS_ = new RegExp('(' + '\\$\\$[\\s\\S]+?\\$\\$|\\\\\\[[\\s\\S]+?\\\\\\]|\\\\\\([\\s\\S]+?\\\\\\)|\\$(?!\\s)[^$\\n]+?\\$' + ')');
+function pecahanTeksKeRumus_(teks) {
+  return teks.split(RE_BAGI_RUMUS_).map((bag, i) => i % 2 === 1 ? bag : bag.replace(RE_PECAHAN_TEKS_, (m, a, b) => '$\\dfrac{' + a + '}{' + b + '}$')).join('');
+}
+function siapkanPecahan_(el) {
+  if (!PECAHAN_OTOMATIS_ || !el || !el.ownerDocument) return;
+  const dok = el.ownerDocument; const tw = dok.createTreeWalker(el, 4 /* SHOW_TEXT */); const daftar = [];
+  for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+    if (n.nodeValue.indexOf('/') < 0) continue;
+    const ib = n.parentElement; if (!ib || ib.closest('.katex, .katex-display, script, style, textarea, code, pre, option, [contenteditable="true"], .rich-editable')) continue;
+    daftar.push(n);
+  }
+  daftar.forEach(n => {
+    const baru = pecahanTeksKeRumus_(n.nodeValue);
+    if (baru !== n.nodeValue) { n.nodeValue = baru; if (n.parentElement) n.parentElement.classList.add('ada-pecahan'); }
+  });
+}
 const _matikaMenunggu_ = new Set();
 let _matikaTimer_ = null;
 function katexSiap_() { return !!(window.katex && window.renderMathInElement); }
 function renderMatika(el) {
   if (!el) return;
   if (katexSiap_()) {
-    try { renderMathInElement(el, OPSI_RUMUS_); } catch (e) { /* abaikan error render */ }
+    try { siapkanPecahan_(el); renderMathInElement(el, OPSI_RUMUS_); } catch (e) { /* abaikan error render */ }
     return;
   }
   _matikaMenunggu_.add(el);
@@ -2445,7 +2612,7 @@ function renderMatika(el) {
     if (katexSiap_()) {
       clearInterval(_matikaTimer_); _matikaTimer_ = null;
       const daftar = Array.from(_matikaMenunggu_); _matikaMenunggu_.clear();
-      daftar.forEach(e => { if (e.isConnected) { try { renderMathInElement(e, OPSI_RUMUS_); } catch (x) { } } });
+      daftar.forEach(e => { if (e.isConnected) { try { siapkanPecahan_(e); renderMathInElement(e, OPSI_RUMUS_); } catch (x) { } } });
     } else if (n > 120) { clearInterval(_matikaTimer_); _matikaTimer_ = null; _matikaMenunggu_.clear(); } // menyerah setelah ~30 dtk
   }, 250);
 }
@@ -2490,7 +2657,7 @@ function renderKontenSoal(soal, opts) {
   const opsiObj = (o) => (o && typeof o === 'object') ? o : { teks: o || '', gambar: '' };
 
   if (soal.tipe === 'pilihan_ganda' || soal.tipe === 'benar_salah') {
-    html += '<div class="opsi-list">' + (soal.opsi || []).map((o, i) => {
+    html += '<div class="opsi-list' + kelasOpsiGambar_(soal.opsi) + '">' + (soal.opsi || []).map((o, i) => {
       const item = opsiObj(o);
       const selected = jawaban[soal.id] === i;
       const onclick = interaktif ? ` onclick="ExamEngine.pilihJawabanTunggal('${soal.id}', ${i})"` : '';
@@ -2501,7 +2668,7 @@ function renderKontenSoal(soal, opts) {
     }).join('') + '</div>';
   } else if (soal.tipe === 'checkbox') {
     const dipilih = jawaban[soal.id] || [];
-    html += '<div class="opsi-list">' + (soal.opsi || []).map((o, i) => {
+    html += '<div class="opsi-list' + kelasOpsiGambar_(soal.opsi) + '">' + (soal.opsi || []).map((o, i) => {
       const item = opsiObj(o);
       const selected = dipilih.includes(i);
       const onclick = interaktif ? ` onclick="ExamEngine.toggleJawabanGanda('${soal.id}', ${i})"` : '';
@@ -5394,9 +5561,11 @@ const Guru = {
       try { await muatPustaka_('xlsx'); } catch (err) { toast(err.message, 'error'); ev.target.value = ''; return; }
       const wb = XLSX.read(e.target.result, { type: 'binary' });
       const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }).filter(r => r.some(c => String(c || '').trim()));
-      const petaGambar = await Guru.unggahBatchGambarImpor_(inputGambar ? inputGambar.files : null);
       const peringatan = [];
+      let rowsSemua = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      rowsSemua = await Guru.sisipkanGambarTempelXlsx_(e.target.result, sheet, rowsSemua, peringatan); // gambar yang ditempel di Excel
+      const rows = rowsSemua.filter(r => r.some(c => String(c || '').trim()));
+      const petaGambar = await Guru.unggahBatchGambarImpor_(inputGambar ? inputGambar.files : null);
       const soalList = barisTabelKeSoalList_(rows, state.user.id, state.guru.kategoriKelola, petaGambar, peringatan);
       if (soalList.length === 0) { toast('Tidak ada baris soal valid ditemukan di file. Pastikan baris pertama adalah header & kolom "Pertanyaan" terisi.', 'error'); return; }
       const res = await api('importSoal', { soalList: JSON.stringify(soalList) });
@@ -5405,7 +5574,7 @@ const Guru = {
         Guru.muatBankSoal();
         if (peringatan.length) Dialog.info({
           judul: 'Impor Berhasil, Perlu Diperiksa', tipe: 'warning', ikon: 'fa-file-circle-exclamation',
-          pesan: 'Soal berhasil diimpor, **tetapi** ' + peringatan.length + ' soal memiliki kunci jawaban yang tidak dikenali. Mohon periksa dan perbaiki manual di Bank Soal:',
+          pesan: 'Soal berhasil diimpor, **tetapi** ada ' + peringatan.length + ' catatan (kunci jawaban, tipe soal, atau gambar) yang perlu diperiksa di Bank Soal:',
           daftar: peringatan
         });
       }
@@ -5547,7 +5716,7 @@ const Guru = {
           Guru.muatBankSoal();
           if (peringatan.length) Dialog.info({
             judul: 'Impor Berhasil, Perlu Diperiksa', tipe: 'warning', ikon: 'fa-file-circle-exclamation',
-            pesan: 'Soal berhasil diimpor, **tetapi** ' + peringatan.length + ' soal memiliki kunci jawaban yang tidak dikenali. Mohon periksa dan perbaiki manual di Bank Soal:',
+            pesan: 'Soal berhasil diimpor, **tetapi** ada ' + peringatan.length + ' catatan (kunci jawaban, tipe soal, atau gambar) yang perlu diperiksa di Bank Soal:',
             daftar: peringatan
           });
         }
@@ -7136,6 +7305,50 @@ const Guru = {
   // Kolom sama persis dgn template Word (lihat Guru.unduhTemplateSoalDocx &
   // barisTabelJadiSoal_) supaya guru cukup belajar 1 format saja utk kedua jenis
   // file. Baris pertama sheet = header (dibaca berdasarkan nama, bebas urutan).
+  // Gambar tempelan di Excel -> diunggah, lalu ditulis ke sel yang bersangkutan:
+  //   kolom Gambar -> alamat gambar | kolom Opsi A-H -> "gambar:ALAMAT" (| teks bila sel juga berisi teks) | Pertanyaan/Pembahasan -> <img> di akhir teks
+  async sisipkanGambarTempelXlsx_(data, sheet, rowsSemua, peringatan) {
+    let daftar = []; const info = {};
+    try { daftar = await bacaGambarXlsx_(data, info); } catch (err) { console.warn('Gambar Excel tak terbaca', err); if (peringatan) peringatan.push('Gambar yang ditempel di Excel tidak dapat dibaca (' + (err && err.message || err) + '). Soal lain tetap diimpor.'); return rowsSemua; }
+    if (info.tidakDidukung && peringatan) peringatan.push(info.tidakDidukung + ' gambar di Excel berformat EMF/WMF/lainnya yang tidak didukung peramban — simpan ulang sebagai PNG/JPG lalu tempel kembali.');
+    if (!daftar.length) return rowsSemua;
+    const rng = XLSX.utils.decode_range(sheet['!ref'] || 'A1'); const r0 = rng.s.r, c0 = rng.s.c;
+    const hr = rowsSemua.findIndex(r => r.some(c => String(c || '').trim())); if (hr < 0) return rowsSemua;
+    const kunciKol = (rowsSemua[hr] || []).map(kunciHeader_);
+    // unggah tiap gambar unik SEKALI
+    const unik = new Map(), daftarUnggah = [];
+    daftar.forEach(g => { const k = g.mime + '|' + g.base64; if (!unik.has(k)) { unik.set(k, daftarUnggah.length); daftarUnggah.push(g); } g.unikIdx = unik.get(k); });
+    toast(`Mengunggah ${daftarUnggah.length} gambar dari Excel...`);
+    let selesai = 0, gagal = 0;
+    const urlUnik = await jalankanParalel_(daftarUnggah, 4, async (g, i) => {
+      const kecil = await perkecilGambar_({ mimeType: g.mime, base64: g.base64, ekstensi: (g.mime.split('/')[1] || 'png') });
+      const res = await api('uploadGambar', { base64: kecil.base64, filename: `soal-xlsx-${i + 1}.${kecil.ekstensi}`, mimeType: kecil.mimeType });
+      selesai++; if (daftarUnggah.length >= 6 && selesai % 5 === 0) toast(`Gambar terunggah ${selesai}/${daftarUnggah.length}...`);
+      if (!res.ok) gagal++; return res.ok ? res.url : null;
+    });
+    if (gagal && peringatan) peringatan.push(gagal + ' gambar dari Excel gagal diunggah (cek koneksi lalu impor ulang).');
+    let terpakai = 0; const sudah = new Set();
+    daftar.forEach(g => {
+      const url = urlUnik[g.unikIdx]; if (!url) return;
+      const ri = g.row - r0, ci = g.col - c0; const nama = kunciKol[ci] || '';
+      const sel = XLSX.utils.encode_cell({ r: g.row, c: g.col });
+      if (ri <= hr || ri >= rowsSemua.length + 200) return; // di baris header / di luar tabel
+      const jenis = nama === 'gambar' ? 'gambar' : /^opsi[a-h]$/.test(nama) ? 'opsi' : (nama === 'pertanyaan' || nama === 'pembahasan') ? 'teks' : '';
+      if (!jenis) { if (peringatan) peringatan.push(`Gambar di sel ${sel} berada di kolom yang tidak dikenali ("${nama || 'tanpa judul'}") — dilewati. Tempel di kolom Gambar, Opsi A–H, Pertanyaan, atau Pembahasan.`); return; }
+      const kunciSel = ri + ':' + ci;
+      if (jenis !== 'teks' && sudah.has(kunciSel)) { if (peringatan) peringatan.push(`Sel ${sel} berisi lebih dari satu gambar — hanya yang pertama dipakai.`); return; }
+      sudah.add(kunciSel);
+      while (rowsSemua.length <= ri) rowsSemua.push([]);
+      const baris = rowsSemua[ri]; while (baris.length <= ci) baris.push('');
+      const lama = String(baris[ci] == null ? '' : baris[ci]).trim();
+      if (jenis === 'gambar') baris[ci] = url;
+      else if (jenis === 'opsi') baris[ci] = 'gambar:' + url + (lama ? ' | ' + lama : '');
+      else baris[ci] = (lama ? escapeHtml_(lama).replace(/\r?\n/g, '<br>') + '<br>' : '') + `<img src="${escapeHtml_(url)}" alt="">`;
+      terpakai++;
+    });
+    if (terpakai) toast(`${terpakai} gambar tempelan dari Excel dipasang ke sel-nya.`, 'success');
+    return rowsSemua;
+  },
   async unduhTemplateSoal() {
     try { await muatPustaka_('xlsx'); } catch (e) { toast(e.message, 'error'); return; }
     const ws = XLSX.utils.aoa_to_sheet([SKD_TEMPLATE_HEADERS_, ...SKD_TEMPLATE_ROWS_]);
@@ -7144,7 +7357,7 @@ const Guru = {
     wp['!cols'] = [46, 52, 52].map(w => ({ wch: w }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Template');            // sheet PERTAMA = yang dibaca saat impor
-    XLSX.utils.book_append_sheet(wb, wp, 'Petunjuk Rumus');       // sheet kedua hanya bacaan
+    XLSX.utils.book_append_sheet(wb, wp, 'Petunjuk');             // sheet kedua hanya bacaan
     XLSX.writeFile(wb, 'Template_Import_Soal_SKD.xlsx');
   },
 
@@ -7770,7 +7983,7 @@ const Siswa = {
 // Tersimpan per perangkat (localStorage) supaya tidak perlu diatur ulang tiap soal.
 // ============================================================================
 const SkalaSoal = {
-  tingkat: [0.85, 1, 1.2, 1.4, 1.7],
+  tingkat: [0.85, 1, 1.15, 1.3, 1.5, 1.75],
   idx: 1,
   init() {
     try { const v = parseInt(localStorage.getItem('cbt_skala_soal'), 10); if (v >= 0 && v < SkalaSoal.tingkat.length) SkalaSoal.idx = v; } catch (e) {}
@@ -9131,7 +9344,7 @@ const ExamEngine = {
     if (it.tipe === 'pilihan_ganda' || it.tipe === 'benar_salah' || it.tipe === 'checkbox' || it.tipe === 'tkp') {
       const dipilih = it.jawaban === null ? [] : (Array.isArray(it.jawaban) ? it.jawaban.map(Number) : [Number(it.jawaban)]);
       const kunci = it.kunciTampil || [];
-      isi += '<div class="opsi-list">' + (it.opsi || []).map((o, i) => {
+      isi += '<div class="opsi-list' + kelasOpsiGambar_(it.opsi) + '">' + (it.opsi || []).map((o, i) => {
         const item = opsiObj(o);
         const benar = kunci.indexOf(i) !== -1;
         const pilih = dipilih.indexOf(i) !== -1;

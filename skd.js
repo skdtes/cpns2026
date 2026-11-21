@@ -323,11 +323,11 @@ const Skd = (function () {
     h += '<div class="skd-pertanyaan pertanyaan">' + kontenSoalHtml(stim.trim() ? stim + tanya : tanya) + '</div>';
     if (soal.gambar) h += tagGambarAman_(soal.gambar, 'gambar-soal', 'Gambar soal');
     if (soal.tipe === 'pilihan_ganda' || soal.tipe === 'tkp' || soal.tipe === 'benar_salah') {
-      h += '<div class="skd-opsi-list">' + (soal.opsi || []).map((o, i) =>
+      h += '<div class="skd-opsi-list' + kelasOpsiGambar_(soal.opsi).replace('opsi-grid', 'skd-opsi-grid') + '">' + (soal.opsi || []).map((o, i) =>
         `<label class="skd-opsi${jwb[soal.id] === i ? ' selected' : ''}" data-opsi="${i}"${aktif ? ` onclick="ExamEngine.pilihJawabanTunggal('${id}', ${i})"` : ''}><span class="skd-huruf">${HURUF[i] || i + 1}</span><span class="skd-opsi-t">${isiOpsi(opsiObj(o))}</span></label>`).join('') + '</div>';
     } else if (soal.tipe === 'checkbox') {
       const dip = jwb[soal.id] || [];
-      h += '<div class="skd-opsi-list">' + (soal.opsi || []).map((o, i) =>
+      h += '<div class="skd-opsi-list' + kelasOpsiGambar_(soal.opsi).replace('opsi-grid', 'skd-opsi-grid') + '">' + (soal.opsi || []).map((o, i) =>
         `<label class="skd-opsi${dip.includes(i) ? ' selected' : ''}" data-opsi="${i}"${aktif ? ` onclick="ExamEngine.toggleJawabanGanda('${id}', ${i})"` : ''}><span class="skd-huruf">${HURUF[i] || i + 1}</span><span class="skd-opsi-t">${isiOpsi(opsiObj(o))}</span></label>`).join('') + '</div>';
     } else {
       h += `<textarea rows="6" placeholder="Tulis jawaban Anda di sini..." oninput="ExamEngine.isiJawabanUraian('${id}', this.value)">${esc(jwb[soal.id] || '')}</textarea>`;
@@ -377,7 +377,7 @@ const Skd = (function () {
   }
   async function tampilHasil(sesiId) {
     const sid = sesiId || state.sesiId; if (!sid) return tampilDaftar();
-    state.sesiId = sid; UI.tampilkan('hasil-skd-screen');
+    state.sesiId = sid; try { KumpulUI.sembunyikanSemua(); } catch (e) { } UI.tampilkan('hasil-skd-screen');
     const box = $('hasil-skd-isi'); box.innerHTML = '<p class="skd-muted">Memuat hasil...</p>';
     const res = await api('getHasil', { sesiId: sid });
     if (!res || !res.ok) { box.innerHTML = '<div class="skd-card skd-kosong"><p>Hasil belum dapat dimuat.</p><button class="skd-btn skd-btn-primary" onclick="Skd.tampilDaftar()">Kembali</button></div>'; return; }
@@ -402,7 +402,8 @@ const Skd = (function () {
     const t = $('hasil-riwayat'); if (t) t.innerHTML = rw && rw.ok ? grafikRiwayat(rw.data) : '<p class="skd-muted">Riwayat belum dapat dimuat.</p>';
   }
   function lihatHasil(sesiId) { state.sesiId = sesiId; return tampilHasil(sesiId); }
-  ExamEngine.tampilkanHasil = function () { return tampilHasil(state.sesiId); };
+  // PENTING: versi asli (app.js) menutup overlay "Jawaban Terkirim"; versi SKD ini dulu lupa, sehingga overlay menutupi layar hasil terus-menerus.
+  ExamEngine.tampilkanHasil = function () { try { KumpulUI.sembunyikanSemua(); } catch (e) { } return tampilHasil(state.sesiId); };
   ExamEngine.tutupDetailJawaban = function () { UI.tampilkan('hasil-skd-screen'); };
 
   async function tampilDashboard() {
@@ -444,6 +445,12 @@ const Skd = (function () {
     const html = '<div class="cert-wrap">' + list.map(htmlSertifikat).join('') + '</div>';
     Guru._cetakArea_(html, judul || 'Sertifikat Simulasi SKD');
     const a = $('cetak-area'); if (a) a.classList.add('cert-area');
+    // Cadangan untuk peramban yang belum mendukung ukuran pada @page bernama: paksa A4 landscape tanpa margin selama pencetakan.
+    const gaya = document.createElement('style'); gaya.id = 'cetak-halaman-sertifikat';
+    gaya.textContent = '@page { size: A4 landscape; margin: 0; }';
+    document.head.appendChild(gaya);
+    const lepas = () => { gaya.remove(); window.removeEventListener('afterprint', lepas); };
+    window.addEventListener('afterprint', lepas);
   }
   async function sertifikatSesi(sesiId) {
     const res = await api('getHasil', { sesiId });

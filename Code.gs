@@ -384,7 +384,11 @@ function readAll_(name) {
 
 function findRowIndexById_(name, id) {
   var sh = sh_(name);
-  var ids = sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 0), 1).getValues();
+  // Sheet yang baru berisi baris judul (belum ada data, mis. Sesi sebelum ada peserta yang mulai ujian):
+  // getRange(2,1,0,1) melempar "Jumlah baris dalam rentang setidaknya harus 1" -> anggap tidak ada baris cocok.
+  var nData = sh.getLastRow() - 1;
+  if (nData < 1) return -1;
+  var ids = sh.getRange(2, 1, nData, 1).getValues();
   for (var i = 0; i < ids.length; i++) {
     if (String(ids[i][0]) === String(id)) return i + 2; // 1-indexed + header
   }
