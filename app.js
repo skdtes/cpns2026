@@ -922,7 +922,7 @@ const TIPE_SINONIM_ = {
 // Deteksi tipe dari teks kolom Tipe. Toleran: abaikan tag HTML, huruf besar/kecil,
 // spasi & tanda baca. Mengembalikan '' kalau tidak dikenali sama sekali.
 // Template impor soal SKD (dipakai Word & Excel).
-const SKD_TEMPLATE_HEADERS_ = ['Kategori', 'Topik', 'Tipe', 'Pertanyaan', 'Gambar', 'Opsi A', 'Opsi B', 'Opsi C', 'Opsi D', 'Opsi E', 'Kunci', 'Bobot', 'Kesulitan', 'Pembahasan'];
+const SKD_TEMPLATE_HEADERS_ = ['Subtes', 'Topik', 'Tipe', 'Pertanyaan', 'Gambar', 'Opsi A', 'Opsi B', 'Opsi C', 'Opsi D', 'Opsi E', 'Kunci', 'Bobot', 'Kesulitan', 'Pembahasan'];
 const SKD_TEMPLATE_ROWS_ = [
   ['TWK', 'Pancasila', 'PG', 'Sila kedua Pancasila adalah ....', '', 'Ketuhanan Yang Maha Esa', 'Kemanusiaan yang adil dan beradab', 'Persatuan Indonesia', 'Kerakyatan yang dipimpin oleh hikmat kebijaksanaan', 'Keadilan sosial bagi seluruh rakyat Indonesia', 'B', '5', 'Mudah', 'Sila kedua: Kemanusiaan yang adil dan beradab.'],
   ['TIU', 'Pola Bilangan', 'PG', 'Perhatikan tabel berikut! (pada file Word: tempel tabel di sel ini) Nilai yang tepat untuk menggantikan tanda ? adalah ....', '', '12', '13', '14', '15', '16', 'C', '5', 'Sedang', 'Tulis langkah penyelesaian di sini.'],
@@ -1280,7 +1280,14 @@ function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGamb
     // bila tidak ada mapel yang sedang dibuka.
     // SKD: bila kolom Kategori di file berisi TWK / TIU / TKP, baris itu masuk ke kategori tsb (satu file boleh campuran
     // TWK+TIU+TKP). Selain itu, ikut mapel yang sedang dibuka seperti biasa.
-    kategori: (function () { const st = skdSubtes_({ kategori: ambil('kategori') }); if (st) return st; return kategoriDefault ? String(kategoriDefault).trim() : normalisasiKategoriSoal_(ambil('kategori') || 'Kuis'); })(),
+    // Subtes (TWK/TIU/TKP) disimpan TERPISAH dari kategori -> 110 soal campuran tetap berada di SATU mapel/paket yang sedang dibuka
+    // (mis. "Simulasi 1"), namun tiap soal tetap dikenali subtesnya. Kolom "Subtes" (atau "Kategori") di file berisi TWK / TIU / TKP.
+    kategori: (function () {
+      if (kategoriDefault) return String(kategoriDefault).trim();
+      const st = skdSubtes_({ kategori: ambil('subtes') || ambil('kategori') }); if (st) return st;
+      return normalisasiKategoriSoal_(ambil('kategori') || 'Kuis');
+    })(),
+    subtes: skdSubtes_({ kategori: ambil('subtes') }) || skdSubtes_({ kategori: ambil('kategori') }) || (tipe === 'tkp' ? 'TKP' : ''),
     subkategori: ambil('subkategori') || ambil('sub-kategori'),
     topik: ambil('topik'),
     tipe,
@@ -1391,10 +1398,10 @@ function ringkasImporSkd_(soalList) {
   const bagian = ['TWK', 'TIU', 'TKP'].filter(k => n[k]).map(k => k + ' ' + n[k]).join(' · ');
   return { teks: bagian ? ' (' + bagian + ')' : '', lain };
 }
-function peringatanTanpaSubtes_(lain) {
-  if (!lain) return;
+function peringatanTanpaSubtes_(lain, jumlah) {
+  if (!lain || (jumlah !== undefined && lain >= jumlah)) return; // semua tanpa subtes = impor soal non-SKD biasa, tidak perlu peringatan
   Dialog.info({ judul: 'Sebagian Soal Belum Masuk TWK/TIU/TKP', tipe: 'warning', ikon: 'fa-triangle-exclamation',
-    pesan: `**${lain} soal** tidak punya kategori TWK, TIU, atau TKP (kolom Kategori kosong/lain dan kategori yang sedang dibuka bukan TWK/TIU/TKP), jadi **tidak bisa dipakai di ujian SKD**.\n\nIsi kolom Kategori dengan TWK, TIU, atau TKP lalu impor ulang, atau buka kategori TWK/TIU/TKP dahulu sebelum mengimpor.` });
+    pesan: `**${lain} soal** belum punya subtes (kolom Subtes/Kategori kosong atau bukan TWK/TIU/TKP), jadi **tidak bisa dipilih untuk ujian SKD**.\n\nIsi kolom dengan TWK, TIU, atau TKP lalu impor ulang, atau atur subtesnya lewat tombol Ubah pada soal.` });
 }
 function barisTabelKeSoalList_(rows, guruId, kategoriDefault, petaGambar, peringatan) {
   if (!rows.length) return [];
@@ -1860,6 +1867,47 @@ const MAPEL_WARNA_LIST = ['#16a97e', '#4a5cf0', '#f5a524', '#e0433d', '#7b5cf5',
 function bacaSemuaMetaMapel_() {
   try { return JSON.parse(localStorage.getItem(MAPEL_META_KEY) || '{}'); } catch (e) { return {}; }
 }
+// Mapel diganti nama: warna/token kartu ikut pindah ke nama baru
+function pindahMetaMapel_(lama, baru) {
+  const semua = bacaSemuaMetaMapel_(); const kl = String(lama).toLowerCase(), kb = String(baru).toLowerCase();
+  if (!semua[kl]) return;
+  const m = semua[kl]; if (kl !== kb) delete semua[kl];
+  if (!semua[kb]) semua[kb] = m;
+  if (m.buatan) semua[kb].buatan = String(baru).trim();
+  try { localStorage.setItem(MAPEL_META_KEY, JSON.stringify(semua)); } catch (e) { }
+}
+
+// ---------------------------------------------------------------------------
+// LEADERBOARD: dipakai Portal Guru & dashboard siswa
+// d = { judul, total, entri:[{peringkat,nama,kelas,twk,tiu,tkp,total,lulus,durasi,saya?}], saya?, nonaktif? }; o = { siswa: bool }
+// ---------------------------------------------------------------------------
+function lbWaktu_(d) { if (d === null || d === undefined || isNaN(d)) return '–'; const m = Math.floor(d / 60), x = d % 60; return m + ' mnt ' + String(x).padStart(2, '0') + ' dtk'; }
+function lbAngka_(v) { return (v === null || v === undefined || v === '') ? '–' : String(Math.round(Number(v) * 10) / 10).replace('.', ','); }
+function renderLeaderboard_(d, o) {
+  o = o || {};
+  if (!d) return '<p class="subtitle">Data tidak tersedia.</p>';
+  if (d.nonaktif) return '<div class="lb-kosong"><i class="fa-solid fa-eye-slash"></i><p>Leaderboard sedang tidak ditampilkan oleh guru.</p></div>';
+  const e = d.entri || [];
+  if (!e.length) return '<div class="lb-kosong"><i class="fa-solid fa-trophy"></i><p>Belum ada peserta yang menyelesaikan ujian ini.</p></div>';
+  const medali = ['emas', 'perak', 'perunggu'], urutPodium = [1, 0, 2];
+  const pod = urutPodium.filter(i => e[i]).map(i => { const x = e[i];
+    return `<div class="lb-pod ${medali[i]}${x.saya ? ' saya' : ''}"><i class="fa-solid fa-crown lb-pod-ico"></i><div class="lb-pod-no">${x.peringkat}</div><div class="lb-pod-nama" title="${escapeHtml_(x.nama)}">${escapeHtml_(x.nama)}</div><div class="lb-pod-kelas">${escapeHtml_(x.kelas)}</div><div class="lb-pod-skor">${lbAngka_(x.total)}</div><div class="lb-pod-waktu"><i class="fa-regular fa-clock"></i> ${lbWaktu_(x.durasi)}</div></div>`; }).join('');
+  const baris = (x, nama) => `<tr class="${x.peringkat <= 3 ? 'lb-top lb-top' + x.peringkat : ''}${x.saya ? ' lb-saya' : ''}">
+      <td class="lb-no"><span class="lb-no-bulat">${x.peringkat}</span></td><td class="lb-nama">${escapeHtml_(nama || x.nama)}${x.saya ? ' <span class="lb-anda">Anda</span>' : ''}</td><td>${escapeHtml_(x.kelas || '')}</td>
+      <td class="lb-n">${lbAngka_(x.twk)}</td><td class="lb-n">${lbAngka_(x.tiu)}</td><td class="lb-n">${lbAngka_(x.tkp)}</td><td class="lb-n lb-total">${lbAngka_(x.total)}</td><td class="lb-w">${lbWaktu_(x.durasi)}</td>
+      <td><span class="badge ${x.lulus ? 'ok' : 'no'}">${x.lulus ? 'Memenuhi' : 'Belum'}</span></td></tr>`;
+  let rows = e.map(x => baris(x)).join('');
+  if (o.siswa && d.saya && !e.some(x => x.saya)) {
+    const nm = (typeof state !== 'undefined' && state.user && (state.user.nama || state.user.username)) || 'Anda';
+    rows += `<tr class="lb-pemisah"><td colspan="9">• • •</td></tr>` + baris(Object.assign({ saya: true, kelas: (state.user && state.user.kelas) || '' }, d.saya), nm);
+  }
+  let ringkas = `<div class="lb-ringkas"><span><i class="fa-solid fa-users"></i> ${d.total} peserta</span><span><i class="fa-solid fa-file-lines"></i> ${escapeHtml_(d.judul || '')}</span></div>`;
+  if (o.siswa) ringkas += d.saya
+    ? `<div class="lb-saya-kartu"><div class="lb-saya-no">#${d.saya.peringkat}</div><div><b>Peringkat Anda</b><br><span>dari ${d.total} peserta · skor ${lbAngka_(d.saya.total)} · ${lbWaktu_(d.saya.durasi)}</span></div></div>`
+    : '<div class="lb-saya-kartu belum"><div><b>Anda belum menyelesaikan ujian ini</b><br><span>Selesaikan ujian untuk masuk ke papan peringkat.</span></div></div>';
+  return ringkas + `<div class="lb-podium">${pod}</div><div class="table-scroll-x"><table class="ledger lb-tabel"><thead><tr><th class="lb-no">#</th><th>Nama</th><th>Kelas</th><th class="lb-n">TWK</th><th class="lb-n">TIU</th><th class="lb-n">TKP</th><th class="lb-n">Total</th><th>Waktu</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
 function ambilMetaMapel_(kategori, tandaiBuatan) {
   const semua = bacaSemuaMetaMapel_();
   const kunci = String(kategori || '').toLowerCase();
@@ -1950,6 +1998,49 @@ function toast(msg, jenis) {
 // diklik, dialog menumpuk). Dengan disuntik dari app.js, dialog dijamin tampil di tengah layar & menutupi halaman.
 // ----------------------------------------------------------------------------
 const VERSI_APLIKASI = '43';
+const CSS_LEADERBOARD = `
+/* ===== Ubah nama mapel ===== */
+.mapel-card-ubah { right: 2.8rem; }
+.mapel-card-subtes { display: flex; flex-wrap: wrap; gap: .3rem; margin: .1rem 0 .3rem; }
+.mapel-card-subtes span { font-size: .72rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); }
+.badge-subtes { display: inline-block; padding: 0 .4rem; border-radius: 5px; background: var(--c-bg); border: 1px solid var(--c-line); font-size: .72rem; }
+/* ===== Leaderboard ===== */
+.lb-toolbar { align-items: center; gap: .8rem; }
+.lb-filter { display: flex; flex-wrap: wrap; gap: .5rem; flex: 1; }
+.lb-filter select { max-width: 230px; }
+.lb-switch { display: inline-flex; align-items: center; gap: .45rem; font-weight: 500; font-size: .85rem; white-space: nowrap; }
+.lb-switch input { width: auto; margin: 0; }
+.lb-ringkas { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; color: var(--c-muted); font-size: .85rem; margin: .2rem 0 .9rem; }
+.lb-ringkas i { margin-right: .3rem; }
+.lb-podium { display: flex; justify-content: center; align-items: flex-end; gap: .9rem; margin: .4rem 0 1.4rem; flex-wrap: wrap; }
+.lb-pod { position: relative; width: 190px; padding: 1.1rem .8rem .9rem; text-align: center; border-radius: 14px; border: 1px solid var(--c-line); background: var(--c-surface); box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.lb-pod.emas { order: 2; padding-top: 1.6rem; padding-bottom: 1.3rem; border-color: #e9b44c; background: linear-gradient(180deg, #fff7e0, var(--c-surface) 70%); }
+.lb-pod.perak { order: 1; border-color: #b9c0c9; background: linear-gradient(180deg, #f2f4f7, var(--c-surface) 70%); }
+.lb-pod.perunggu { order: 3; border-color: #d39a6a; background: linear-gradient(180deg, #fbefe4, var(--c-surface) 70%); }
+.lb-pod.saya { box-shadow: 0 0 0 2px var(--c-secondary), 0 2px 8px rgba(0,0,0,.06); }
+.lb-pod-ico { font-size: 1.5rem; }
+.lb-pod.emas .lb-pod-ico { color: #e0a100; font-size: 1.9rem; } .lb-pod.perak .lb-pod-ico { color: #9aa3ae; } .lb-pod.perunggu .lb-pod-ico { color: #c4814d; }
+.lb-pod-no { position: absolute; top: .55rem; left: .7rem; font-weight: 700; font-size: .8rem; color: var(--c-muted); }
+.lb-pod-nama { font-weight: 700; margin-top: .3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lb-pod-kelas { font-size: .78rem; color: var(--c-muted); }
+.lb-pod-skor { font-size: 1.9rem; font-weight: 800; line-height: 1.2; margin-top: .3rem; font-variant-numeric: tabular-nums; }
+.lb-pod-waktu { font-size: .76rem; color: var(--c-muted); }
+.lb-tabel th.lb-n, .lb-tabel td.lb-n { text-align: center; font-variant-numeric: tabular-nums; }
+.lb-tabel td.lb-total { font-weight: 800; }
+.lb-tabel td.lb-w { white-space: nowrap; font-size: .8rem; color: var(--c-muted); }
+.lb-tabel .lb-no { width: 3.2rem; text-align: center; }
+.lb-no-bulat { display: inline-flex; align-items: center; justify-content: center; min-width: 1.9rem; height: 1.9rem; border-radius: 50%; font-weight: 700; font-size: .82rem; background: var(--c-bg); border: 1px solid var(--c-line); }
+.lb-top1 .lb-no-bulat { background: #f6c748; border-color: #e0a100; color: #4a3600; } .lb-top2 .lb-no-bulat { background: #d5dae1; border-color: #aab2bd; color: #2f3640; } .lb-top3 .lb-no-bulat { background: #e3b48c; border-color: #c4814d; color: #4a2a10; }
+.lb-tabel tr.lb-saya td { background: color-mix(in srgb, var(--c-secondary) 14%, var(--c-surface)); font-weight: 600; }
+.lb-anda { display: inline-block; margin-left: .35rem; padding: .05rem .5rem; border-radius: 999px; background: var(--c-secondary); color: #fff; font-size: .68rem; font-weight: 700; vertical-align: middle; }
+.lb-tabel tr.lb-pemisah td { text-align: center; color: var(--c-muted); letter-spacing: .3em; padding: .2rem; }
+.lb-saya-kartu { display: flex; align-items: center; gap: 1rem; padding: .8rem 1.1rem; margin-bottom: .9rem; border-radius: 12px; background: color-mix(in srgb, var(--c-secondary) 14%, var(--c-surface)); border: 1px solid var(--c-secondary); }
+.lb-saya-kartu span { font-size: .85rem; color: var(--c-muted); }
+.lb-saya-no { font-size: 1.8rem; font-weight: 800; min-width: 3.6rem; text-align: center; }
+.lb-saya-kartu.belum { background: var(--c-bg); border-color: var(--c-line); }
+.lb-kosong { text-align: center; padding: 2.2rem 1rem; color: var(--c-muted); } .lb-kosong i { font-size: 2.2rem; opacity: .5; } .lb-kosong p { margin: .6rem 0 0; }
+@media (max-width: 640px) { .lb-pod { width: 100%; order: 0 !important; } .lb-podium { flex-direction: column; align-items: stretch; } .lb-filter select { max-width: none; flex: 1 1 45%; } }
+`;
 const CSS_KELOLA = `
 /* ===== Kelola Ujian: daftar yang rapi ===== */
 .ujian-toolbar { align-items: center; padding-bottom: 1rem; margin-bottom: .4rem; border-bottom: 1px solid var(--c-line); }
@@ -2216,7 +2307,7 @@ function injectGayaDialog_() {
   if (document.getElementById('dlg-gaya')) return;
   const el = document.createElement('style');
   el.id = 'dlg-gaya';
-  el.textContent = CSS_DIALOG + CSS_SEGAR + CSS_RUMUS + CSS_KELOLA + CSS_FSBUKTI + CSS_SHEET + CSS_KAMERA + CSS_GALERI + CSS_KUNCI;
+  el.textContent = CSS_DIALOG + CSS_SEGAR + CSS_RUMUS + CSS_KELOLA + CSS_LEADERBOARD + CSS_FSBUKTI + CSS_SHEET + CSS_KAMERA + CSS_GALERI + CSS_KUNCI;
   document.head.appendChild(el);
 }
 injectGayaDialog_();
@@ -2892,6 +2983,8 @@ var SKD_PRESET = {
   abk: { nama: 'ABK / Rescuer / Pengamat Gunung Api', twk: 0, tiu: 70, tkp: 0, total: 286 }
 };
 function skdSubtes_(soal) {
+  var sub = String((soal && soal.subtes) || '').trim().toUpperCase();
+  if (sub === 'TWK' || sub === 'TIU' || sub === 'TKP') return sub; // subtes yang ditetapkan pada soal diutamakan
   var t = (String((soal && soal.subtes) || '') + ' ' + String((soal && soal.kategori) || '')).toLowerCase();
   if (/(^|[^a-z])tkp([^a-z]|$)|karakteristik pribadi/.test(t)) return 'TKP';
   if (/(^|[^a-z])tiu([^a-z]|$)|inteleg|intelijensi|inteligensi/.test(t)) return 'TIU';
@@ -3243,6 +3336,59 @@ function skdRingkas_(rows, ambang) {
         D.bankSoal.forEach(s => { if (ids.has(String(s.id))) { s.status = data.status || 'aktif'; n++; } });
         simpan();
         return { ok: true, count: n };
+      }
+      case 'ubahNamaGrupSoal': {
+        const jenis = String(data.jenis || ''), baru = String(data.baru || '').trim();
+        if ((jenis !== 'kategori' && jenis !== 'paket') || !String(data.lama || '').trim() || !baru) return { ok: false, error: 'Data tidak lengkap.' };
+        let n = 0, nu = 0;
+        D.bankSoal.forEach(x => {
+          if (data.guruId && x.guru_id !== data.guruId) return;
+          if (jenis === 'paket' && data.kategori && !samaTeks_(x.kategori, data.kategori)) return;
+          const kolom = jenis === 'kategori' ? 'kategori' : 'subkategori';
+          if (samaTeks_(x[kolom], data.lama)) {
+            x[kolom] = baru; n++;
+            const sb = String(data.subtes || '').toUpperCase();
+            if (jenis === 'kategori' && (sb === 'TWK' || sb === 'TIU' || sb === 'TKP') && !String(x.subtes || '').trim()) x.subtes = sb;
+          }
+        });
+        if (jenis === 'paket' && n > 0 && !data.kategori) D.ujian.forEach(u => { if ((!data.guruId || u.guru_id === data.guruId) && samaTeks_(u.subkategori, data.lama)) { u.subkategori = baru; nu++; } });
+        simpan();
+        return { ok: true, count: n, ujian: nu };
+      }
+      case 'getPengaturanLeaderboard': return { ok: true, aktif: D.config.leaderboardSiswa !== false };
+      case 'simpanPengaturanLeaderboard': {
+        D.config.leaderboardSiswa = data.aktif === true || String(data.aktif).toLowerCase() === 'true';
+        simpan();
+        return { ok: true, aktif: D.config.leaderboardSiswa };
+      }
+      case 'getLeaderboard': {
+        const sebagaiSiswa = !!data.siswaId;
+        if (sebagaiSiswa && D.config.leaderboardSiswa === false) return { ok: true, data: { nonaktif: true, entri: [], total: 0, saya: null, kelasList: [] } };
+        const ujian = D.ujian.find(u => u.id === data.ujianId);
+        if (!ujian) return { ok: false, error: 'Ujian tidak ditemukan.' };
+        const siswaMap = {}; D.siswa.forEach(x => { siswaMap[x.id] = x; });
+        const terbaik = {};
+        D.sesi.filter(x => x.ujian_id === data.ujianId && x.status !== 'berlangsung').forEach(x => {
+          const skd = skdParse_(x.skor_json);
+          const total = (skd && skd.total != null) ? Number(skd.total) : (Number(x.nilai) || 0);
+          const a = new Date(x.mulai).getTime(), b = new Date(x.selesai).getTime();
+          const durasi = (isNaN(a) || isNaN(b) || b < a) ? null : Math.round((b - a) / 1000);
+          const cur = terbaik[x.siswa_id];
+          if (cur && !(total > cur.total || (total === cur.total && durasi !== null && (cur.durasi === null || durasi < cur.durasi)))) return;
+          const sw = siswaMap[x.siswa_id] || {};
+          terbaik[x.siswa_id] = { siswaId: x.siswa_id, nama: sw.nama || '(tidak dikenal)', kelas: sw.kelas || '-', twk: skd ? skd.twk : null, tiu: skd ? skd.tiu : null, tkp: skd ? skd.tkp : null, total, lulus: skd ? !!skd.lulus : !!x.lulus, durasi };
+        });
+        const semua = Object.values(terbaik);
+        const kelasList = [...new Set(semua.map(e => e.kelas))].sort();
+        const daftar = data.kelas ? semua.filter(e => samaTeks_(e.kelas, data.kelas)) : semua;
+        daftar.sort((x, y) => (y.total - x.total) || ((x.durasi === null ? 1e12 : x.durasi) - (y.durasi === null ? 1e12 : y.durasi)) || String(x.nama).localeCompare(String(y.nama)));
+        daftar.forEach((e, i) => { const p = daftar[i - 1]; e.peringkat = (p && p.total === e.total && p.durasi === e.durasi) ? p.peringkat : i + 1; });
+        let saya = null;
+        if (sebagaiSiswa) { const m = daftar.find(e => String(e.siswaId) === String(data.siswaId)); if (m) saya = { peringkat: m.peringkat, total: m.total, twk: m.twk, tiu: m.tiu, tkp: m.tkp, lulus: m.lulus, durasi: m.durasi }; }
+        const limit = Math.max(0, Number(data.limit) || 0);
+        let entri = limit ? daftar.slice(0, limit) : daftar;
+        entri = entri.map(e => sebagaiSiswa ? { peringkat: e.peringkat, nama: e.nama, kelas: e.kelas, twk: e.twk, tiu: e.tiu, tkp: e.tkp, total: e.total, lulus: e.lulus, durasi: e.durasi, saya: String(e.siswaId) === String(data.siswaId) } : e);
+        return { ok: true, data: { judul: ujian.judul, total: daftar.length, entri, saya, kelasList } };
       }
       case 'getBankSoal': {
         let list = clone(D.bankSoal);
@@ -3824,6 +3970,7 @@ const SKD_PRESET = {
   abk: { nama: 'ABK / Rescuer / Pengamat Gunung Api', twk: 0, tiu: 70, tkp: 0, total: 286 }
 };
 function skdSubtes_(soal) { // sama dengan blok SKD di LocalBackend / Code.gs
+  { const sub = String((soal && soal.subtes) || '').trim().toUpperCase(); if (sub === 'TWK' || sub === 'TIU' || sub === 'TKP') return sub; } // subtes yang ditetapkan pada soal diutamakan
   const t = (String((soal && soal.subtes) || '') + ' ' + String((soal && soal.kategori) || '')).toLowerCase();
   if (/(^|[^a-z])tkp([^a-z]|$)|karakteristik pribadi/.test(t)) return 'TKP';
   if (/(^|[^a-z])tiu([^a-z]|$)|inteleg|intelijensi|inteligensi/.test(t)) return 'TIU';
@@ -4227,6 +4374,7 @@ const UI = {
     if (tabId === 'tab-materi' && typeof Skd !== 'undefined' && Skd.muatTabMateri) Skd.muatTabMateri();
     if (tabId === 'tab-bank-soal') Guru.muatBankSoal();
     if (tabId === 'tab-ujian') Guru.muatDaftarUjian();
+    if (tabId === 'tab-leaderboard') Guru.bukaTabLeaderboard();
     if (tabId === 'tab-rekap') Guru.muatPilihanUjianUntukSelect('pilih-ujian-rekap');
     if (tabId === 'tab-analisis') Guru.muatPilihanUjianUntukSelect('pilih-ujian-analisis');
     if (tabId === 'tab-pelanggaran') Guru.muatPilihanUjianUntukSelect('pilih-ujian-log');
@@ -4362,6 +4510,7 @@ const UI = {
     document.getElementById('soal-pertanyaan-toolbar').innerHTML = UI.htmlRichToolbar(false);
     document.getElementById('soal-kategori').value = soal ? soal.kategori : (state.guru.kategoriKelola || 'Kuis');
     document.getElementById('soal-subkategori').value = soal && soal.subkategori ? soal.subkategori : '';
+    { const sb = document.getElementById('soal-subtes'); if (sb) sb.value = soal ? (soal.subtes || '') : (skdSubtes_({ kategori: state.guru.kategoriKelola || '' }) || ''); }
     document.getElementById('soal-topik').value = soal && soal.topik ? soal.topik : '';
     document.getElementById('soal-tipe').value = soal ? soal.tipe : (tipePraset || state.guru.tipeTabKelola || 'pilihan_ganda');
     document.getElementById('soal-pertanyaan').innerHTML = soal ? kontenSoalHtml(soal.pertanyaan) : '';
@@ -4591,6 +4740,8 @@ const UI = {
       document.getElementById('ujian-n-tiu').value = tg ? (Number(tg.tiu) || 0) : 35;
       document.getElementById('ujian-n-tkp').value = tg ? (Number(tg.tkp) || 0) : 45;
       Guru._ujianLamaTanpaTarget = !!(ujian && !tg);
+      Guru._sumberUjian = (amb2 && amb2.sumber) ? String(amb2.sumber) : '';
+      Guru._nSebelum = { TWK: Number(document.getElementById('ujian-n-twk').value) || 0, TIU: Number(document.getElementById('ujian-n-tiu').value) || 0, TKP: Number(document.getElementById('ujian-n-tkp').value) || 0 };
     }
     // null (bukan array kosong) khusus menandai "ujian baru, belum ada
     // pilihan tersimpan" -> semua soal yang cocok otomatis tercentang.
@@ -4959,9 +5110,10 @@ const Guru = {
     semua.forEach(s => {
       const k = s.kategori || '(tanpa kategori)';
       const arsip = (s.status || 'aktif') === 'arsip';
-      peta[k] = peta[k] || { total: 0, arsip: 0 };
+      peta[k] = peta[k] || { total: 0, arsip: 0, st: { TWK: 0, TIU: 0, TKP: 0 } };
       peta[k].total++;
       if (arsip) peta[k].arsip++;
+      else { const st = skdSubtes_(s); if (st) peta[k].st[st]++; }
     });
     // Mapel yang SELURUH soalnya sudah diarsipkan (0 soal aktif) tidak lagi
     // ditampilkan di grid utama -- tetap bisa ditemukan & dikembalikan lewat
@@ -4981,6 +5133,7 @@ const Guru = {
       const jumlahAktif = peta[k].total - peta[k].arsip;
       return `
       <div class="mapel-card" style="--mapel-warna:${meta.warna}">
+        ${k === '(tanpa kategori)' ? '' : `<button type="button" class="mapel-card-hapus mapel-card-ubah" title="Ubah nama Mapel / Kategori ini" onclick="event.stopPropagation();Guru.ubahNamaKategori('${escapeHtml_(k).replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i></button>`}
         <button type="button" class="mapel-card-hapus" title="Arsipkan seluruh soal Mapel ini" onclick="event.stopPropagation();Guru.hapusKategoriSoal('${escapeHtml_(k).replace(/'/g, "\\'")}')">🗑</button>
         <div class="mapel-card-ico">💡</div>
         <div class="mapel-card-badges">
@@ -4989,6 +5142,7 @@ const Guru = {
         </div>
         <div class="mapel-card-judul">${escapeHtml_(labelKategori(k))}</div>
         <div class="mapel-card-jumlah">Total Soal: <strong>${jumlahAktif}</strong>${peta[k].arsip ? ` <span class="subtitle" style="display:inline">(+${peta[k].arsip} arsip)</span>` : ''}</div>
+        ${peta[k].st && Object.values(peta[k].st).filter(v => v > 0).length >= 2 ? `<div class="mapel-card-subtes">${['TWK', 'TIU', 'TKP'].filter(x => peta[k].st[x]).map(x => `<span>${x} ${peta[k].st[x]}</span>`).join('')}</div>` : ''}
         <div class="mapel-card-aksi">
           <button type="button" class="accent small" style="flex:1" onclick="Guru.bukaKelolaSoal('${escapeHtml_(k).replace(/'/g, "\\'")}')">Kelola Soal</button>
           <button type="button" class="secondary small icon" title="Pratinjau seluruh soal Mapel ini (tampilan sama persis dengan siswa)" onclick="event.stopPropagation();Guru.pratinjauKategoriSoal('${escapeHtml_(k).replace(/'/g, "\\'")}')">👁</button>
@@ -5000,6 +5154,85 @@ const Guru = {
         <div class="mapel-card-add-ico">+</div>
         <div class="mapel-card-add-label">Tambah Mapel Baru</div>
       </div>`;
+  },
+
+  // Ubah nama Mapel / Kategori: seluruh soalnya dipindahkan ke nama baru (bila nama baru sudah ada -> digabung).
+  async ubahNamaKategori(lama) {
+    const baru0 = await Dialog.input({
+      judul: 'Ubah Nama Mapel / Kategori', ikon: 'fa-pen',
+      pesan: `Nama baru untuk **${labelKategori(lama)}**. Seluruh soal di dalamnya ikut dipindahkan.`,
+      label: 'Nama baru', nilai: lama, maksimal: 60, wajib: true, pesanWajib: 'Nama tidak boleh kosong.', teksYa: 'Simpan Nama'
+    });
+    if (baru0 === null || baru0 === undefined) return;
+    const baru = String(baru0).trim();
+    if (!baru || baru === lama) return;
+    const bank = state.guru.bankSoal || [];
+    const adaSoal = bank.some(x => samaTeks_(x.kategori, lama));
+    // Nama lama memuat TWK/TIU/TKP -> subtes disimpan pada tiap soal sebelum nama diganti, jadi soal tetap dikenali di ujian SKD.
+    const stLama = skdSubtes_({ kategori: lama }), stBaru = skdSubtes_({ kategori: baru });
+    const bawaSubtes = (stLama && stLama !== stBaru) ? stLama : '';
+    if (bank.some(x => samaTeks_(x.kategori, baru) && !samaTeks_(x.kategori, lama)) && adaSoal) {
+      const gabung = await Dialog.konfirmasi({ judul: 'Nama Sudah Ada', tipe: 'info', ikon: 'fa-code-merge',
+        pesan: `Kategori **${baru}** sudah ada. Soal dari **${labelKategori(lama)}** akan **digabung** ke dalamnya.`, teksYa: 'Ya, Gabungkan' });
+      if (!gabung) return;
+    }
+    if (adaSoal) {
+      const res = await api('ubahNamaGrupSoal', { guruId: state.user.id, jenis: 'kategori', lama, baru, subtes: bawaSubtes });
+      if (!res.ok) { toast('Gagal mengubah nama: ' + (res.error || ''), 'error'); return; }
+      toast(`${res.count} soal dipindahkan ke "${baru}"${bawaSubtes ? ' (tetap dikenali sebagai ' + bawaSubtes + ')' : ''}.`, 'success');
+    } else toast(`Nama mapel diubah menjadi "${baru}".`, 'success');
+    pindahMetaMapel_(lama, baru);
+    if (samaTeks_(state.guru.kategoriKelola, lama)) state.guru.kategoriKelola = baru;
+    await Guru.muatBankSoal();
+  },
+  // Ubah nama Paket (sub-kategori) yang sedang dipilih pada filter; berlaku untuk semua soal bernama paket itu.
+  async ubahNamaPaket() {
+    const sel = document.getElementById('filter-subkategori-soal'); const lama = sel ? sel.value : '';
+    if (!lama) { toast('Pilih dulu paket yang ingin diubah pada kotak "Semua sub-kategori".', 'error'); return; }
+    const baru0 = await Dialog.input({
+      judul: 'Ubah Nama Paket', ikon: 'fa-pen',
+      pesan: `Nama baru untuk paket **${escapeHtml_(lama)}**. Berlaku untuk **semua soal** berpaket ini (TWK, TIU, TKP, dan lainnya) serta ujian yang memakainya.`,
+      label: 'Nama paket baru', nilai: lama, maksimal: 60, wajib: true, pesanWajib: 'Nama tidak boleh kosong.', teksYa: 'Simpan Nama'
+    });
+    if (baru0 === null || baru0 === undefined) return;
+    const baru = String(baru0).trim();
+    if (!baru || baru === lama) return;
+    const res = await api('ubahNamaGrupSoal', { guruId: state.user.id, jenis: 'paket', lama, baru });
+    if (!res.ok) { toast('Gagal mengubah nama paket: ' + (res.error || ''), 'error'); return; }
+    toast(`Paket diubah: ${res.count} soal${res.ujian ? ' dan ' + res.ujian + ' ujian' : ''} ikut diperbarui.`, 'success');
+    await Guru.muatBankSoal();
+    const sel2 = document.getElementById('filter-subkategori-soal');
+    if (sel2) { sel2.value = baru; Guru.renderDaftarSoal(); }
+  },
+
+  // ---------------- LEADERBOARD (guru) ----------------
+  async bukaTabLeaderboard() {
+    const sel = document.getElementById('lb-ujian'); if (!sel) return;
+    const dipilih = sel.value;
+    const res = await api('getDaftarUjian', { guruId: state.user.id });
+    if (res.ok) {
+      sel.innerHTML = '<option value="">Pilih ujian...</option>' + res.data.map(u => `<option value="${u.id}">${escapeHtml_(u.judul)}</option>`).join('');
+      if (dipilih && res.data.some(u => u.id === dipilih)) sel.value = dipilih; else if (res.data.length === 1) sel.value = res.data[0].id;
+    }
+    const pg = await api('getPengaturanLeaderboard', {}); const cb = document.getElementById('lb-tampil-siswa'); if (cb && pg && pg.ok) cb.checked = !!pg.aktif;
+    Guru.muatLeaderboard();
+  },
+  async muatLeaderboard() {
+    const isi = document.getElementById('lb-isi'); if (!isi) return;
+    const id = document.getElementById('lb-ujian').value;
+    if (!id) { isi.innerHTML = '<div class="lb-kosong"><i class="fa-solid fa-trophy"></i><p>Pilih ujian untuk melihat peringkat peserta.</p></div>'; return; }
+    isi.innerHTML = '<p class="subtitle">Memuat...</p>';
+    const kel = document.getElementById('lb-kelas'), lim = document.getElementById('lb-limit');
+    const res = await api('getLeaderboard', { ujianId: id, kelas: kel.value, limit: Number(lim.value) || 0 });
+    if (!res.ok) return gagalMuat_(isi, res.error || 'Gagal memuat leaderboard.');
+    const kv = kel.value;
+    kel.innerHTML = '<option value="">Semua kelas</option>' + (res.data.kelasList || []).map(k => `<option value="${escapeHtml_(k)}">${escapeHtml_(k)}</option>`).join('');
+    if (kv && (res.data.kelasList || []).includes(kv)) kel.value = kv;
+    isi.innerHTML = renderLeaderboard_(res.data, {});
+  },
+  async simpanLeaderboardSiswa(aktif) {
+    const res = await api('simpanPengaturanLeaderboard', { aktif: !!aktif });
+    toast(res.ok ? (aktif ? 'Leaderboard ditampilkan ke siswa.' : 'Leaderboard disembunyikan dari siswa.') : 'Gagal menyimpan pengaturan.', res.ok ? 'success' : 'error');
   },
 
   async tambahMapelBaru() {
@@ -5126,7 +5359,7 @@ const Guru = {
       <div class="soal-item">
         <div class="soal-item-nomor">${i + 1}</div>
         <div class="soal-item-body">
-          <div class="meta">${labelKategori(s.kategori)}${s.subkategori ? ' • ' + escapeHtml_(s.subkategori) : ''}${s.topik ? ' • ' + escapeHtml_(s.topik) : ''} • ${labelTipe(s.tipe)} • Bobot ${s.bobot} • ${labelKesulitan(s.tingkat_kesulitan)} • <span class="badge no">Arsip</span></div>
+          <div class="meta">${labelKategori(s.kategori)}${skdSubtes_(s) ? ' • <b class="badge-subtes">' + skdSubtes_(s) + '</b>' : ''}${s.subkategori ? ' • ' + escapeHtml_(s.subkategori) : ''}${s.topik ? ' • ' + escapeHtml_(s.topik) : ''} • ${labelTipe(s.tipe)} • Bobot ${s.bobot} • ${labelKesulitan(s.tingkat_kesulitan)} • <span class="badge no">Arsip</span></div>
           <div>${kontenSoalHtml(s.pertanyaan)}</div>
           ${s.gambar ? tagGambarAman_(s.gambar, '', 'Gambar soal') : ''}
           <div class="aksi">
@@ -5238,6 +5471,7 @@ const Guru = {
       ? state.guru.kategoriKelola
       : (document.getElementById('filter-kategori-soal')?.value || '');
     const filterSubkategori = document.getElementById('filter-subkategori-soal')?.value || '';
+    const filterSubtes = document.getElementById('filter-subtes-soal')?.value || '';
     const filterStatus = document.getElementById('filter-status-soal')?.value || 'aktif';
     const hanyaRiwayat = document.getElementById('filter-riwayat-soal')?.checked || false;
     const hanyaBelumKunci = document.getElementById('filter-belum-kunci-soal')?.checked || false;
@@ -5257,6 +5491,7 @@ const Guru = {
     if (filterStatus !== 'semua') data = data.filter(s => (s.status || 'aktif') === filterStatus);
     if (filterKategori) data = data.filter(s => samaTeks_(s.kategori, filterKategori));
     if (filterSubkategori) data = data.filter(s => samaTeks_(s.subkategori, filterSubkategori));
+    if (filterSubtes) data = data.filter(s => skdSubtes_(s) === filterSubtes);
     if (hanyaRiwayat) data = data.filter(s => dipakaiDi[s.id]);
     if (tipeTab) data = data.filter(s => (s.tipe || 'pilihan_ganda') === tipeTab);
 
@@ -5282,7 +5517,7 @@ const Guru = {
       <div class="soal-item${(!stKunci.ada && !stKunci.manual) ? ' soal-tanpa-kunci' : ''}">
         <div class="soal-item-nomor">${i + 1}</div>
         <div class="soal-item-body">
-          <div class="meta">${labelKategori(s.kategori)}${s.subkategori ? ' • ' + escapeHtml_(s.subkategori) : ''}${s.topik ? ' • ' + escapeHtml_(s.topik) : ''} • ${labelTipe(s.tipe)} • Bobot ${s.bobot} • ${labelKesulitan(s.tingkat_kesulitan)} • ${badgeKunci}${arsip ? ' • <span class="badge no">Arsip</span>' : ''}${dipakai ? ` • <span class="badge warn" title="${escapeHtml_(dipakai.join(', '))}">🕘 Pernah dipakai (${dipakai.length}×)</span>` : ''}</div>
+          <div class="meta">${labelKategori(s.kategori)}${skdSubtes_(s) ? ' • <b class="badge-subtes">' + skdSubtes_(s) + '</b>' : ''}${s.subkategori ? ' • ' + escapeHtml_(s.subkategori) : ''}${s.topik ? ' • ' + escapeHtml_(s.topik) : ''} • ${labelTipe(s.tipe)} • Bobot ${s.bobot} • ${labelKesulitan(s.tingkat_kesulitan)} • ${badgeKunci}${arsip ? ' • <span class="badge no">Arsip</span>' : ''}${dipakai ? ` • <span class="badge warn" title="${escapeHtml_(dipakai.join(', '))}">🕘 Pernah dipakai (${dipakai.length}×)</span>` : ''}</div>
           <div>${kontenSoalHtml(s.pertanyaan)}</div>
           ${s.gambar ? tagGambarAman_(s.gambar, '', 'Gambar soal') : ''}
           ${s.audio ? `<audio controls src="${escapeHtml_(s.audio)}" style="margin-top:.5rem;max-width:320px"></audio>` : ''}
@@ -5472,6 +5707,7 @@ const Guru = {
         guru_id: state.user.id,
         kategori: document.getElementById('soal-kategori').value,
         subkategori: document.getElementById('soal-subkategori').value.trim(),
+        subtes: (document.getElementById('soal-subtes') || {}).value || '',
         topik: document.getElementById('soal-topik').value.trim(),
         tipe,
         pertanyaan: sanitasiHtmlKaya_(rtHtmlSerial_(document.getElementById('soal-pertanyaan'))),
@@ -5606,7 +5842,7 @@ const Guru = {
       if (soalList.length === 0) { toast('Tidak ada baris soal valid ditemukan di file. Pastikan baris pertama adalah header & kolom "Pertanyaan" terisi.', 'error'); return; }
       const res = await api('importSoal', { soalList: JSON.stringify(soalList) });
       if (res.ok) {
-        { const rg = ringkasImporSkd_(soalList); toast(res.count + ' soal berhasil diimpor' + rg.teks + '.', 'success'); peringatanTanpaSubtes_(rg.lain); }
+        { const rg = ringkasImporSkd_(soalList); toast(res.count + ' soal berhasil diimpor' + rg.teks + '.', 'success'); peringatanTanpaSubtes_(rg.lain, soalList.length); }
         Guru.muatBankSoal();
         if (peringatan.length) Dialog.info({
           judul: 'Impor Berhasil, Perlu Diperiksa', tipe: 'warning', ikon: 'fa-file-circle-exclamation',
@@ -5748,7 +5984,7 @@ const Guru = {
         if (res.ok) {
           let ket = '';
           if (jumlahTempel > 0) ket = ` (${jumlahTempel - gagalTempel} gambar tempelan di Word ikut otomatis terunggah${gagalTempel ? `, ${gagalTempel} gagal` : ''})`;
-          { const rg = ringkasImporSkd_(soalList); toast(res.count + ' soal berhasil diimpor dari Word' + rg.teks + ket + '.', 'success'); peringatanTanpaSubtes_(rg.lain); }
+          { const rg = ringkasImporSkd_(soalList); toast(res.count + ' soal berhasil diimpor dari Word' + rg.teks + ket + '.', 'success'); peringatanTanpaSubtes_(rg.lain, soalList.length); }
           Guru.muatBankSoal();
           if (peringatan.length) Dialog.info({
             judul: 'Impor Berhasil, Perlu Diperiksa', tipe: 'warning', ikon: 'fa-file-circle-exclamation',
@@ -5776,7 +6012,7 @@ const Guru = {
     const items = [
       { text: 'TEMPLATE IMPORT SOAL SKD CPNS — Simulasi CAT', heading: true },
       { text: 'Isi tabel di bawah, SATU BARIS = SATU SOAL. Jangan mengubah baris judul kolom. Hapus baris contoh sebelum mengimpor.' },
-      { text: 'Kategori: TWK, TIU, atau TKP (menentukan subtes). Topik: materi/sub-materi, mis. Pancasila, UUD 1945, Pola Bilangan, Kecukupan Data, Pelayanan Publik (dipakai untuk analisis materi yang kurang per peserta). Paket (sub-kategori / try out) dipilih saat impor.' },
+      { text: 'Subtes (atau Kategori): TWK, TIU, atau TKP — semua soal tetap masuk ke mapel yang sedang dibuka, tidak dipecah. Topik: materi/sub-materi, mis. Pancasila, UUD 1945, Pola Bilangan, Kecukupan Data, Pelayanan Publik (dipakai untuk analisis materi yang kurang per peserta). Paket (sub-kategori / try out) dipilih saat impor.' },
       { text: 'Tipe PG (TWK/TIU): isi Opsi A–E dan Kunci satu huruf (benar = 5 poin, salah/kosong = 0). Tipe TKP: isi Opsi A–E dan kolom Kunci dengan SKOR 1–5 tiap opsi berurutan A..E, mis. 5,4,3,2,1 (opsi paling tepat = 5). Tipe Kecukupan (soal Kecukupan Data TIU): cukup isi Pertanyaan (termasuk PERNYATAAN (1) dan (2)) dan Kunci A–E; kelima pilihan baku terisi otomatis.' },
       { text: 'Soal bertabel (mis. Pola Bilangan): pada file Word, tempel/buat tabel langsung di dalam sel Pertanyaan, atau pakai kolom Gambar. Tabel di sel tetap terbaca. Rumus: cukup Insert > Equation (otomatis dikonversi saat impor), atau ketik LaTeX di antara tanda $ ... $, mis. $\\frac{1}{2}$ atau $x^{2}$ (rumus besar di baris sendiri: $$ ... $$). Pangkat/indeks biasa: Superscript/Subscript. Gambar boleh ditempel di kolom Gambar. Pembahasan opsional.' },
       { table: { headers: SKD_TEMPLATE_HEADERS_, rows: SKD_TEMPLATE_ROWS_ } }
@@ -5916,7 +6152,17 @@ const Guru = {
     const res = await api('getBankSoal', { guruId: state.user.id, kategori: '', subkategori });
     const cont = document.getElementById('pilihan-soal-ujian');
     const terpilih = idsTerpilih || [];
-    const daftar = (res.ok ? res.data : []).filter(s => ((s.status || 'aktif') !== 'arsip' || terpilih.includes(s.id)) && skdSubtes_(s));
+    { // pilihan "Ambil soal dari mapel": hanya mapel yang memuat soal TWK/TIU/TKP
+      const selSum = document.getElementById('ujian-sumber');
+      if (selSum) {
+        const sebelum = Guru._sumberUjian !== undefined ? Guru._sumberUjian : selSum.value; Guru._sumberUjian = undefined;
+        const kats = [...new Set((res.ok ? res.data : []).filter(s => (s.status || 'aktif') !== 'arsip' && skdSubtes_(s)).map(s => String(s.kategori || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'id'));
+        selSum.innerHTML = '<option value="">Semua mapel yang memuat soal TWK/TIU/TKP</option>' + kats.map(k => `<option value="${escapeHtml_(k)}">${escapeHtml_(labelKategori(k))}</option>`).join('');
+        selSum.value = kats.some(k => samaTeks_(k, sebelum)) ? kats.find(k => samaTeks_(k, sebelum)) : '';
+      }
+    }
+    const sumber = (document.getElementById('ujian-sumber') || {}).value || '';
+    const daftar = (res.ok ? res.data : []).filter(s => ((s.status || 'aktif') !== 'arsip' || terpilih.includes(s.id)) && skdSubtes_(s) && (!sumber || samaTeks_(s.kategori, sumber)));
     Guru._poolSkd = { TWK: [], TIU: [], TKP: [] };
     daftar.forEach(s => Guru._poolSkd[skdSubtes_(s)].push(s));
     { // soal aktif yang namanya tidak memuat TWK/TIU/TKP -> tak bisa dipakai ujian; beri tahu kategorinya
@@ -5942,6 +6188,20 @@ const Guru = {
     const n = { TWK: 0, TIU: 0, TKP: 0 };
     document.querySelectorAll('.chk-soal-ujian:checked').forEach(c => { if (n[c.dataset.st] !== undefined) n[c.dataset.st]++; });
     return n;
+  },
+  // Ujian SATU subtes (mis. TIU saja): jumlah subtes lain diisi 0 -> ambang subtes itu ikut 0 dan ambang total = jumlah ambang yang tersisa.
+  // Hanya berjalan saat sebuah subtes BERALIH antara 0 dan bukan-0, supaya ambang buatan/preset formasi tidak tertimpa.
+  ambangDariJumlah_() {
+    const m = Guru._targetSkd(), sblm = Guru._nSebelum || { TWK: 1, TIU: 1, TKP: 1 };
+    const std = { TWK: 65, TIU: 80, TKP: 166 }, idA = { TWK: 'ujian-amb-twk', TIU: 'ujian-amb-tiu', TKP: 'ujian-amb-tkp' };
+    let berubah = false;
+    ['TWK', 'TIU', 'TKP'].forEach(st => {
+      if ((sblm[st] === 0) === (m[st] === 0)) return;
+      const el = document.getElementById(idA[st]); if (!el) return;
+      el.value = m[st] === 0 ? 0 : std[st]; berubah = true;
+    });
+    if (berubah) { const t = document.getElementById('ujian-amb-total'); if (t) t.value = ['twk', 'tiu', 'tkp'].reduce((a, k) => a + (Number((document.getElementById('ujian-amb-' + k) || {}).value) || 0), 0); }
+    Guru._nSebelum = m;
   },
   hitungPilihSkd() {
     const n = Guru._terpilihSkd();
@@ -5971,7 +6231,7 @@ const Guru = {
         : `<b>${b.st}</b> baru terpilih ${b.pilih} dari ${b.m}`).join('; ') +
         `. Tambahkan soalnya di Bank Soal (kategori ${bermasalah.filter(b => b.kelas === 'kurang').map(b => b.st).join('/') || 'terkait'}) atau kecilkan jumlah yang diminta.</div>`;
       const ts = Guru._soalTanpaSubtes;
-      if (ts && ts.n > 0) h += `<div class="skd-kurang-banner warn"><b>${ts.n} soal di Bank Soal tidak terhitung</b> karena nama kategorinya tidak memuat TWK, TIU, atau TKP: ${ts.kategori.map(escapeHtml_).join(', ')}. Impor ulang dengan kolom Kategori berisi TWK/TIU/TKP, atau beri nama kategori soal tsb TWK/TIU/TKP.</div>`;
+      if (ts && ts.n > 0) h += `<div class="skd-kurang-banner warn"><b>${ts.n} soal di Bank Soal tidak terhitung</b> karena belum punya subtes TWK/TIU/TKP (mapel: ${ts.kategori.map(escapeHtml_).join(', ')}). Atur subtesnya lewat tombol Ubah pada soal, atau impor ulang dengan kolom Subtes berisi TWK/TIU/TKP.</div>`;
     } else if (baris.some(b => b.m > 0)) {
       h += `<div class="skd-kurang-banner ok">✔ Jumlah soal sesuai permintaan: TWK ${n.TWK} · TIU ${n.TIU} · TKP ${n.TKP} = ${n.TWK + n.TIU + n.TKP} soal.</div>`;
     }
@@ -6031,7 +6291,7 @@ const Guru = {
         durasi_menit: Number(document.getElementById('ujian-durasi').value),
         toleransi_menit: Number(document.getElementById('ujian-toleransi').value),
         nilai_lulus: Number(document.getElementById('ujian-amb-total').value) || 0,
-        ambang_json: JSON.stringify({ formasi: document.getElementById('ujian-formasi').value, twk: Number(document.getElementById('ujian-amb-twk').value) || 0, tiu: Number(document.getElementById('ujian-amb-tiu').value) || 0, tkp: Number(document.getElementById('ujian-amb-tkp').value) || 0, total: Number(document.getElementById('ujian-amb-total').value) || 0, target: { twk: targetSkd.TWK, tiu: targetSkd.TIU, tkp: targetSkd.TKP } }),
+        ambang_json: JSON.stringify({ formasi: document.getElementById('ujian-formasi').value, twk: Number(document.getElementById('ujian-amb-twk').value) || 0, tiu: Number(document.getElementById('ujian-amb-tiu').value) || 0, tkp: Number(document.getElementById('ujian-amb-tkp').value) || 0, total: Number(document.getElementById('ujian-amb-total').value) || 0, target: { twk: targetSkd.TWK, tiu: targetSkd.TIU, tkp: targetSkd.TKP }, sumber: (document.getElementById('ujian-sumber') || {}).value || '' }),
         max_pelanggaran: Number(document.getElementById('ujian-max-pelanggaran').value),
         mulai: document.getElementById('ujian-mulai').value ? new Date(document.getElementById('ujian-mulai').value).toISOString() : '',
         selesai: document.getElementById('ujian-selesai').value ? new Date(document.getElementById('ujian-selesai').value).toISOString() : '',

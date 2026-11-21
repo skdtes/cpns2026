@@ -165,6 +165,7 @@
       <button class="nav-tab" data-tab="tab-bank-soal" onclick="UI.gantiTabGuru('tab-bank-soal')"><i class="fa-solid fa-layer-group nav-ico"></i><span>Bank Soal</span></button>
       <button class="nav-tab" data-tab="tab-ujian" onclick="UI.gantiTabGuru('tab-ujian')"><i class="fa-solid fa-calendar-days nav-ico"></i><span>Kelola Ujian</span></button>
       <button class="nav-tab" data-tab="tab-rekap" onclick="UI.gantiTabGuru('tab-rekap')"><i class="fa-solid fa-clipboard-check nav-ico"></i><span>Rekap Nilai</span></button>
+      <button class="nav-tab" data-tab="tab-leaderboard" onclick="UI.gantiTabGuru('tab-leaderboard')"><i class="fa-solid fa-trophy nav-ico"></i><span>Leaderboard</span></button>
       <button class="nav-tab" data-tab="tab-materi" onclick="UI.gantiTabGuru('tab-materi')"><i class="fa-solid fa-bullseye nav-ico"></i><span>Analisis Materi</span></button>
       <button class="nav-tab" data-tab="tab-analisis" onclick="UI.gantiTabGuru('tab-analisis')"><i class="fa-solid fa-chart-pie nav-ico"></i><span>Analisis Soal</span></button>
       <button class="nav-tab" data-tab="tab-pelanggaran" onclick="UI.gantiTabGuru('tab-pelanggaran')"><i class="fa-solid fa-triangle-exclamation nav-ico"></i><span>Log Pelanggaran</span></button>
@@ -340,7 +341,7 @@
             Soal TKP: tipe <b>TKP</b> dengan skor 1–5 pada tiap opsi. Soal TIU <i>Kecukupan Data</i> cukup isi tipe <b>Kecukupan</b> (lima pilihan baku terisi otomatis).
             Kolom <b>Topik</b> dipakai untuk analisis materi yang kurang per peserta.</p>
           <p class="subtitle" style="margin-top:.8rem">
-            <strong>Kategori:</strong> semua soal yang diimpor dari halaman ini otomatis masuk ke mapel yang sedang dibuka — isi kolom "Kategori" di file tidak perlu diisi (diabaikan).
+            <strong>Subtes:</strong> semua soal yang diimpor dari halaman ini masuk ke mapel yang sedang dibuka (mis. <i>Simulasi 1</i>) — tidak dipecah. Isi kolom "Subtes" (atau "Kategori") di file dengan <b>TWK</b>, <b>TIU</b>, atau <b>TKP</b> agar tiap soal dikenali subtesnya; 110 soal campuran cukup diimpor sekaligus, atau impor TIU/TWK/TKP saja.
           </p>
           <p class="subtitle" style="margin-top:.4rem">
             <strong>Soal bergambar (Excel):</strong> di kolom "Gambar" pada tabel, cukup ketik nama file gambarnya saja
@@ -360,9 +361,13 @@
           <div class="toolbar" style="margin-top:1.2rem">
             <div class="row" style="flex:1;margin:0;gap:.6rem;flex-wrap:wrap">
               <select id="filter-kategori-soal" class="hidden" onchange="Guru.renderDaftarSoal()"><option value="">Semua kategori</option></select>
+              <select id="filter-subtes-soal" onchange="Guru.renderDaftarSoal()" style="max-width:150px" title="Tampilkan hanya soal dari satu subtes SKD">
+                <option value="">Semua subtes</option><option value="TWK">TWK</option><option value="TIU">TIU</option><option value="TKP">TKP</option>
+              </select>
               <select id="filter-subkategori-soal" onchange="Guru.renderDaftarSoal()" style="max-width:220px">
                 <option value="">Semua sub-kategori</option>
               </select>
+              <button type="button" class="secondary small" id="btn-ubah-paket" onclick="Guru.ubahNamaPaket()" title="Ubah nama paket (sub-kategori) yang dipilih"><i class="fa-solid fa-pen"></i> Ubah Nama Paket</button>
               <select id="filter-status-soal" onchange="Guru.renderDaftarSoal()" style="max-width:160px">
                 <option value="aktif" selected>Bank Soal (Aktif)</option>
                 <option value="arsip">Arsip</option>
@@ -404,6 +409,26 @@
         </div>
 
         <div id="daftar-ujian">Memuat...</div>
+      </div>
+    </section>
+
+    <!-- ---------- TAB: LEADERBOARD ---------- -->
+    <section id="tab-leaderboard" class="hidden">
+      <h2>Leaderboard</h2>
+      <p class="subtitle">Peringkat peserta berdasarkan skor total SKD (nilai terbaik tiap peserta; bila seri, yang lebih cepat selesai berada di atas).</p>
+      <div class="panel">
+        <div class="toolbar lb-toolbar">
+          <div class="lb-filter">
+            <select id="lb-ujian" onchange="Guru.muatLeaderboard()"><option value="">Pilih ujian...</option></select>
+            <select id="lb-kelas" onchange="Guru.muatLeaderboard()"><option value="">Semua kelas</option></select>
+            <select id="lb-limit" onchange="Guru.muatLeaderboard()"><option value="10">10 teratas</option><option value="25">25 teratas</option><option value="50">50 teratas</option><option value="0">Semua peserta</option></select>
+          </div>
+          <div class="toolbar-actions">
+            <label class="lb-switch" title="Bila dimatikan, siswa tidak melihat papan peringkat di dashboard mereka"><input type="checkbox" id="lb-tampil-siswa" checked onchange="Guru.simpanLeaderboardSiswa(this.checked)"> Tampilkan ke siswa</label>
+            <button type="button" class="secondary" onclick="Guru.muatLeaderboard()"><i class="fa-solid fa-rotate"></i> Segarkan</button>
+          </div>
+        </div>
+        <div id="lb-isi"><div class="lb-kosong"><i class="fa-solid fa-trophy"></i><p>Pilih ujian untuk melihat peringkat peserta.</p></div></div>
       </div>
     </section>
 
@@ -858,6 +883,15 @@
       <option value="uraian">Essay</option>
     </select>
 
+    <div class="field">
+      <label>Subtes SKD <span class="subtitle" style="display:inline">— TWK / TIU / TKP; kosongkan bila bukan soal SKD</span></label>
+      <select id="soal-subtes">
+        <option value="">— Bukan soal SKD / ikut nama kategori —</option>
+        <option value="TWK">TWK — Tes Wawasan Kebangsaan</option>
+        <option value="TIU">TIU — Tes Intelegensia Umum</option>
+        <option value="TKP">TKP — Tes Karakteristik Pribadi</option>
+      </select>
+    </div>
     <div class="row">
       <div class="field">
         <label>Kategori / Nama Mapel</label>
@@ -1071,9 +1105,13 @@
         <input type="text" id="ujian-subkategori" list="daftar-subkategori-soal" placeholder="mis. FR SKD II 2026 — kosongkan untuk semua paket" onchange="Guru.muatPilihanSoalUntukUjian()">
       </div>
     </div>
-    <p class="subtitle" style="margin-top:-.6rem">Soal diambil dari kategori <b>TWK</b>, <b>TIU</b>, dan <b>TKP</b> di Bank Soal (nama kategori memuat TWK/TIU/TKP).
-      Isi jumlah soal tiap subtes (resmi: TWK 30, TIU 35, TKP 45 = 110 soal) lalu klik <b>Susun Soal</b>; soal diambil dari paket yang dipilih di atas.
-      Urutan di layar peserta selalu TWK → TIU → TKP.</p>
+    <div class="field">
+      <label>Ambil soal dari Mapel / Kategori</label>
+      <select id="ujian-sumber" onchange="Guru.muatPilihanSoalUntukUjian()"><option value="">Semua mapel yang memuat soal TWK/TIU/TKP</option></select>
+    </div>
+    <p class="subtitle" style="margin-top:-.4rem">Soal dipilih berdasarkan <b>subtes</b> tiap soal (TWK/TIU/TKP), dari mapel &amp; paket yang dipilih di atas — soal tidak perlu dipecah per kategori.
+      Isi jumlah soal tiap subtes (resmi: TWK 30, TIU 35, TKP 45 = 110 soal) lalu klik <b>Susun Soal</b>.
+      <b>Ujian satu subtes saja?</b> isi <b>0</b> pada subtes lain (mis. TIU 35, TWK 0, TKP 0). Urutan di layar peserta selalu TWK → TIU → TKP.</p>
     <div class="field">
       <div class="row" style="justify-content:space-between;align-items:center;margin:0 0 .4rem">
         <label style="margin:0">Soal yang Dipakai <span id="skd-hitung-pilih" class="subtitle" style="display:inline"></span></label>
@@ -1083,9 +1121,9 @@
         </div>
       </div>
       <div class="row" style="margin:.2rem 0 .5rem;align-items:flex-end">
-        <div class="field"><label>TWK</label><input type="number" id="ujian-n-twk" min="0" value="30" oninput="Guru.hitungPilihSkd()"></div>
-        <div class="field"><label>TIU</label><input type="number" id="ujian-n-tiu" min="0" value="35" oninput="Guru.hitungPilihSkd()"></div>
-        <div class="field"><label>TKP</label><input type="number" id="ujian-n-tkp" min="0" value="45" oninput="Guru.hitungPilihSkd()"></div>
+        <div class="field"><label>TWK</label><input type="number" id="ujian-n-twk" min="0" value="30" oninput="Guru.ambangDariJumlah_();Guru.hitungPilihSkd()"></div>
+        <div class="field"><label>TIU</label><input type="number" id="ujian-n-tiu" min="0" value="35" oninput="Guru.ambangDariJumlah_();Guru.hitungPilihSkd()"></div>
+        <div class="field"><label>TKP</label><input type="number" id="ujian-n-tkp" min="0" value="45" oninput="Guru.ambangDariJumlah_();Guru.hitungPilihSkd()"></div>
         <div class="field" style="flex:0 0 auto"><button type="button" class="accent small" onclick="Guru.susunSoalSkd(false)"><i class="fa-solid fa-wand-magic-sparkles"></i> Susun Soal</button> <button type="button" class="secondary small" onclick="Guru.susunSoalSkd(true)"><i class="fa-solid fa-shuffle"></i> Acak Ulang</button></div>
       </div>
       <div id="skd-kurang-info" class="skd-kurang-info" role="status" aria-live="polite"></div>
@@ -1388,7 +1426,7 @@
 </div>
 
 <script src="config.js"></script>
-<script src="app.js?v=83"></script>
-<script src="skd.js?v=80"></script>
+<script src="app.js?v=85"></script>
+<script src="skd.js?v=81"></script>
 </body>
 </html>

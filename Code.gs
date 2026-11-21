@@ -117,7 +117,7 @@ var SCHEMA = {
   // 'topik' (Topik/Kompetensi bebas diketik), 'audio' & 'video' (link media pendukung
   // soal, mis. untuk soal listening/video) ditambahkan lewat mekanisme skema otomatis
   // yang sama -- lihat README bag. "Menambah kolom baru" & tampilan "Kelola Soal".
-  BankSoal: ['id', 'guru_id', 'kategori', 'subkategori', 'tipe', 'topik', 'pertanyaan', 'gambar', 'audio', 'video', 'opsi_json', 'kunci_json', 'bobot', 'tingkat_kesulitan', 'pembahasan', 'status', 'dibuat'],
+  BankSoal: ['id', 'guru_id', 'kategori', 'subkategori', 'subtes', 'tipe', 'topik', 'pertanyaan', 'gambar', 'audio', 'video', 'opsi_json', 'kunci_json', 'bobot', 'tingkat_kesulitan', 'pembahasan', 'status', 'dibuat'],
   Ujian: ['id', 'guru_id', 'judul', 'kategori', 'subkategori', 'soal_ids', 'durasi_menit', 'token', 'mulai', 'selesai', 'toleransi_menit', 'max_pelanggaran', 'acak_soal', 'acak_opsi', 'nilai_lulus', 'status', 'instruksi_remedial', 'pesan_nilai', 'tampil_detail', 'tampil_pembahasan', 'bukti_orek', 'token_kelas', 'ambang_json'],
   // 'tambahan_detik' dipakai fitur "Pemantauan Ujian" (tombol "Tambah Waktu") --
   // jumlah detik ekstra yang diberikan guru ke satu sesi siswa tertentu, di luar
@@ -262,6 +262,10 @@ function route_(action, data) {
     case 'hapusSoal': return withLock_(lock, function () { return actionHapusSoal_(data); });
     case 'hapusSoalBanyak': return withLock_(lock, function () { return actionHapusSoalBanyak_(data); });
     case 'ubahStatusSoalBanyak': return withLock_(lock, function () { return actionUbahStatusSoalBanyak_(data); });
+    case 'ubahNamaGrupSoal': return withLock_(lock, function () { return actionUbahNamaGrupSoal_(data); });
+    case 'getLeaderboard': return actionGetLeaderboard_(data);
+    case 'getPengaturanLeaderboard': return jsonOut_({ ok: true, aktif: leaderboardSiswaAktif_() });
+    case 'simpanPengaturanLeaderboard': return withLock_(lock, function () { return actionSimpanPengaturanLeaderboard_(data); });
     case 'getBankSoal': return actionGetBankSoal_(data);
 
     // --- GURU: UJIAN ---
@@ -623,6 +627,114 @@ function actionHapusSoalBanyak_(data) {
 
 // PERF: ubah status (aktif/arsip) banyak soal sekaligus: baca kolom id + status
 // sekali, tulis kolom status sekali.
+// ----------------------------------------------------------------------------
+// UBAH NAMA KATEGORI / PAKET SOAL (massal, 1 kali tulis per kolom)
+// data: { guruId, jenis: 'kategori' | 'paket', lama, baru, kategori (opsional; membatasi paket pada 1 kategori) }
+// Mengubah nama pada SEMUA soal milik guru itu yang cocok. Untuk paket, Ujian.subkategori ikut disamakan.
+// ----------------------------------------------------------------------------
+function normTeks_(v) { return String(v == null ? '' : v).trim().toLowerCase().replace(/\s+/g, ' '); }
+function actionUbahNamaGrupSoal_(data) {
+  var jenis = String(data.jenis || ''), lama = String(data.lama || ''), baru = String(data.baru || '').trim();
+  if ((jenis !== 'kategori' && jenis !== 'paket') || !normTeks_(lama) || !baru) return jsonOut_({ ok: false, error: 'Data tidak lengkap.' });
+  var guruId = String(data.guruId || '');
+  var headers = headersOf_(SHEET.BANK_SOAL);
+  var kolom = headers.indexOf(jenis === 'kategori' ? 'kategori' : 'subkategori') + 1;
+  var kolomGuru = headers.indexOf('guru_id') + 1, kolomKat = headers.indexOf('kategori') + 1;
+  if (kolom < 1 || kolomGuru < 1) return jsonOut_({ ok: false, error: 'Kolom tidak ditemukan.' });
+  var sh = sh_(SHEET.BANK_SOAL);
+  var n = sh.getLastRow() - 1;
+  if (n < 1) return jsonOut_({ ok: true, count: 0, ujian: 0 });
+  var nilai = sh.getRange(2, kolom, n, 1).getValues();
+  var guru = sh.getRange(2, kolomGuru, n, 1).getValues();
+  var kat = (jenis === 'paket' && kolomKat > 0) ? sh.getRange(2, kolomKat, n, 1).getValues() : null;
+  var batasKat = normTeks_(data.kategori || '');
+  // Mengganti nama kategori yang MEMUAT nama subtes (mis. "TWK") ke nama lain: kunci subtes disimpan di kolom subtes
+  // pada soal yang belum punya, supaya soal tetap dikenali sebagai TWK/TIU/TKP.
+  var setSubtes = String(data.subtes || '').toUpperCase();
+  var kolomSub = headers.indexOf('subtes') + 1;
+  var nilaiSub = (jenis === 'kategori' && kolomSub > 0 && (setSubtes === 'TWK' || setSubtes === 'TIU' || setSubtes === 'TKP')) ? sh.getRange(2, kolomSub, n, 1).getValues() : null;
+  var berubah = 0, subtesTerisi = 0;
+  for (var i = 0; i < n; i++) {
+    if (guruId && String(guru[i][0]) !== guruId) continue;
+    if (kat && batasKat && normTeks_(kat[i][0]) !== batasKat) continue;
+    if (normTeks_(nilai[i][0]) === normTeks_(lama)) {
+      nilai[i][0] = baru; berubah++;
+      if (nilaiSub && !String(nilaiSub[i][0] || '').trim()) { nilaiSub[i][0] = setSubtes; subtesTerisi++; }
+    }
+  }
+  if (berubah > 0) sh.getRange(2, kolom, n, 1).setValues(nilai);
+  if (subtesTerisi > 0) sh.getRange(2, kolomSub, n, 1).setValues(nilaiSub);
+  var ujianUbah = 0;
+  if (jenis === 'paket' && berubah > 0 && !batasKat) {
+    var hu = headersOf_(SHEET.UJIAN), ks = hu.indexOf('subkategori') + 1, kg = hu.indexOf('guru_id') + 1;
+    var su = sh_(SHEET.UJIAN), nu = su.getLastRow() - 1;
+    if (ks > 0 && kg > 0 && nu >= 1) {
+      var vs = su.getRange(2, ks, nu, 1).getValues(), vg = su.getRange(2, kg, nu, 1).getValues();
+      for (var j = 0; j < nu; j++) {
+        if (guruId && String(vg[j][0]) !== guruId) continue;
+        if (normTeks_(vs[j][0]) === normTeks_(lama)) { vs[j][0] = baru; ujianUbah++; }
+      }
+      if (ujianUbah > 0) su.getRange(2, ks, nu, 1).setValues(vs);
+    }
+  }
+  return jsonOut_({ ok: true, count: berubah, ujian: ujianUbah });
+}
+
+// ----------------------------------------------------------------------------
+// LEADERBOARD
+// Satu entri TERBAIK per siswa pada satu ujian (nilai total tertinggi; seri -> yang lebih cepat selesai).
+// Panggilan dari siswa (membawa siswaId) hanya dilayani bila guru mengaktifkan leaderboard untuk siswa,
+// dan id siswa lain TIDAK dikirim balik.
+// ----------------------------------------------------------------------------
+function leaderboardSiswaAktif_() { return getConfigValue_('leaderboard_siswa') !== '0'; } // bawaan: aktif
+function actionSimpanPengaturanLeaderboard_(data) {
+  var aktif = data.aktif === true || String(data.aktif).toLowerCase() === 'true';
+  setConfigValue_('leaderboard_siswa', aktif ? '1' : '0');
+  return jsonOut_({ ok: true, aktif: aktif });
+}
+function actionGetLeaderboard_(data) {
+  var sebagaiSiswa = !!data.siswaId;
+  if (sebagaiSiswa && !leaderboardSiswaAktif_()) return jsonOut_({ ok: true, data: { nonaktif: true, entri: [], total: 0, saya: null, kelasList: [] } });
+  var ujian = readAll_(SHEET.UJIAN).filter(function (u) { return u.id === data.ujianId; })[0];
+  if (!ujian) return jsonOut_({ ok: false, error: 'Ujian tidak ditemukan.' });
+  var sesiList = bacaSesiGabunganUntukUjian_(data.ujianId)
+    .map(function (b) { return ambilSesiState_(b.id) || b; })
+    .filter(function (s) { return s.status !== 'berlangsung'; });
+  var siswaMap = {};
+  readAll_(SHEET.SISWA).forEach(function (x) { siswaMap[x.id] = x; });
+  var terbaik = {};
+  sesiList.forEach(function (s) {
+    var skd = skdParse_(s.skor_json);
+    var total = (skd && skd.total != null) ? Number(skd.total) : (Number(s.nilai) || 0);
+    var a = new Date(s.mulai).getTime(), b = new Date(s.selesai).getTime();
+    var durasi = (isNaN(a) || isNaN(b) || b < a) ? null : Math.round((b - a) / 1000);
+    var cur = terbaik[s.siswa_id];
+    var lebih = !cur || total > cur.total || (total === cur.total && durasi !== null && (cur.durasi === null || durasi < cur.durasi));
+    if (!lebih) return;
+    var sw = siswaMap[s.siswa_id] || {};
+    terbaik[s.siswa_id] = { siswaId: s.siswa_id, nama: sw.nama || '(tidak dikenal)', kelas: sw.kelas || '-',
+      twk: skd ? skd.twk : null, tiu: skd ? skd.tiu : null, tkp: skd ? skd.tkp : null, total: total,
+      lulus: skd ? !!skd.lulus : (String(s.lulus) === 'true' || s.lulus === true), durasi: durasi,
+      maks: skd && skd.maks ? skd.maks.total : null };
+  });
+  var semua = Object.keys(terbaik).map(function (k) { return terbaik[k]; });
+  var kelasSet = {}; semua.forEach(function (e) { kelasSet[e.kelas] = true; });
+  var daftar = data.kelas ? semua.filter(function (e) { return normTeks_(e.kelas) === normTeks_(data.kelas); }) : semua;
+  daftar.sort(function (x, y) {
+    if (y.total !== x.total) return y.total - x.total;
+    var dx = x.durasi === null ? 1e12 : x.durasi, dy = y.durasi === null ? 1e12 : y.durasi;
+    if (dx !== dy) return dx - dy;
+    return String(x.nama).localeCompare(String(y.nama));
+  });
+  daftar.forEach(function (e, i) { var p = daftar[i - 1]; e.peringkat = (p && p.total === e.total && p.durasi === e.durasi) ? p.peringkat : i + 1; });
+  var saya = null;
+  if (sebagaiSiswa) { var m = daftar.filter(function (e) { return String(e.siswaId) === String(data.siswaId); })[0]; if (m) saya = { peringkat: m.peringkat, total: m.total, twk: m.twk, tiu: m.tiu, tkp: m.tkp, lulus: m.lulus, durasi: m.durasi }; }
+  var limit = Math.max(0, Number(data.limit) || 0);
+  var entri = limit ? daftar.slice(0, limit) : daftar;
+  if (sebagaiSiswa) entri = entri.map(function (e) { return { peringkat: e.peringkat, nama: e.nama, kelas: e.kelas, twk: e.twk, tiu: e.tiu, tkp: e.tkp, total: e.total, lulus: e.lulus, durasi: e.durasi, saya: String(e.siswaId) === String(data.siswaId) }; });
+  return jsonOut_({ ok: true, data: { judul: ujian.judul, total: daftar.length, entri: entri, saya: saya, kelasList: Object.keys(kelasSet).sort() } });
+}
+
 function actionUbahStatusSoalBanyak_(data) {
   var ids = JSON.parse(data.ids || '[]');
   var status = String(data.status || 'aktif');
@@ -2277,6 +2389,8 @@ var SKD_PRESET = {
   abk: { nama: 'ABK / Rescuer / Pengamat Gunung Api', twk: 0, tiu: 70, tkp: 0, total: 286 }
 };
 function skdSubtes_(soal) {
+  var sub = String((soal && soal.subtes) || '').trim().toUpperCase();
+  if (sub === 'TWK' || sub === 'TIU' || sub === 'TKP') return sub; // subtes yang ditetapkan pada soal diutamakan
   var t = (String((soal && soal.subtes) || '') + ' ' + String((soal && soal.kategori) || '')).toLowerCase();
   if (/(^|[^a-z])tkp([^a-z]|$)|karakteristik pribadi/.test(t)) return 'TKP';
   if (/(^|[^a-z])tiu([^a-z]|$)|inteleg|intelijensi|inteligensi/.test(t)) return 'TIU';

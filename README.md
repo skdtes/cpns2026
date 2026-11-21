@@ -93,6 +93,21 @@ Teks pecahan biasa seperti `1/15` atau `2/30` di soal, opsi, dan pembahasan otom
 ## Tampilan Kelola Ujian (v14)
 Daftar ujian dirapikan: judul bar dengan ringkasan (jumlah ujian & yang aktif), kolom Komposisi Soal selaras (TWK/TIU/TKP + total), token dengan tombol **salin**, jadwal Mulai/Selesai bertumpuk rapi, tombol aksi (Token Kelas, Ubah, Hapus) satu baris dengan ikon. Gaya disuntik dari `app.js` sehingga ikut tema yang dipilih.
 
+## Ubah nama Mapel/Kategori & Paket, serta Leaderboard (v15)
+* **Ubah nama Mapel/Kategori:** tombol ✎ di pojok kartu Bank Soal. Seluruh soal di dalamnya dipindahkan ke nama baru (bila nama sudah ada, digabung). Warna/token kartu ikut pindah. Bila nama lama memuat TWK/TIU/TKP dan nama baru tidak, muncul peringatan karena nama dipakai untuk mengenali subtes SKD.
+* **Ubah nama Paket:** di halaman Kelola Soal, pilih paket pada filter *sub-kategori* lalu klik **Ubah Nama Paket**. Berlaku untuk semua soal berpaket itu (di semua kategori) dan ujian yang memakainya.
+* **Leaderboard (guru):** menu baru **Leaderboard**: pilih ujian, filter kelas, tampilkan 10/25/50/semua; podium 3 teratas + tabel (TWK, TIU, TKP, total, waktu, status). Nilai terbaik tiap peserta; bila seri, yang lebih cepat selesai berada di atas. Saklar **Tampilkan ke siswa** mengatur apakah siswa melihatnya.
+* **Leaderboard (siswa):** kartu *Leaderboard* di Dashboard Peserta (10 teratas + peringkat sendiri). Data siswa lain yang dikirim hanya nama, kelas, dan skor.
+* **Code.gs berubah** (aksi `ubahNamaGrupSoal`, `getLeaderboard`, `getPengaturanLeaderboard`, `simpanPengaturanLeaderboard`): ganti isi, lalu *Deploy › Manage deployments › New version*.
+
+## Soal tidak perlu dipecah per kategori: "Subtes" terpisah dari Kategori (v16)
+* **Impor sekali jalan:** 110 soal TWK+TIU+TKP diimpor dari dalam satu mapel/paket (mis. **Simulasi 1**) dan **tetap di satu kartu**. Kolom **Subtes** (atau **Kategori**) di file berisi `TWK` / `TIU` / `TKP` menentukan subtes tiap soal; template Excel kini berjudul kolom *Subtes*. Bisa juga impor TIU saja / TWK saja / TKP saja.
+* Kartu Bank Soal menampilkan rincian (mis. `TWK 30 · TIU 35 · TKP 45`); halaman Kelola Soal punya filter **Semua subtes**; form soal punya isian **Subtes SKD**.
+* **Ujian:** pilih *Ambil soal dari Mapel/Kategori* (mis. Simulasi 1) lalu **Susun Soal**. **Ujian satu subtes:** isi 0 pada subtes lain (mis. TIU 35, TWK 0, TKP 0) — ambang kelulusan menyesuaikan otomatis (TIU 80), dan layar hasil/sertifikat hanya menampilkan subtes yang diujikan.
+* **Menggabung kartu lama** TWK/TIU/TKP: gunakan tombol ✎ pada tiap kartu dan ganti namanya menjadi "Simulasi 1" — soal digabung dan tetap dikenali subtesnya.
+* Soal lama (subtes dikenali dari nama kategori/tipe) tetap berfungsi tanpa diubah. Kolom `subtes` ditambahkan otomatis di sheet BankSoal.
+* **Code.gs berubah:** ganti isi lalu *Deploy › Manage deployments › New version*.
+
 ## Dihapus dari versi sebelumnya
 Seluruh fitur survei (Survei Karakter/Sulingjar) dan identitas ANBK/TKA/sekolah. Sheet `Survei`/`PaketSurvei` lama tidak dipakai lagi (boleh dihapus manual).
 

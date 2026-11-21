@@ -387,9 +387,10 @@ const Skd = (function () {
       h += `<div class="skd-card"><p>Hasil ujian ini tersimpan sebagai nilai biasa: <b>${esc(res.nilai)}</b>.</p></div>`;
     } else {
       h += `<div class="skd-banner ${s.lulus ? 'ok' : 'no'}"><i class="fa-solid ${s.lulus ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i><div><b>${s.lulus ? 'MEMENUHI AMBANG BATAS SKD' : 'BELUM MEMENUHI AMBANG BATAS SKD'}</b><p>Skor total <b>${nTeks(s.total)}</b> dari ${nTeks(s.maks.total)} (passing grade total ${s.ambang.total}).${s.lulus ? '' : ' Periksa subtes yang berwarna merah dan pelajari materi yang disarankan di bawah.'}</p></div></div>`;
-      h += '<div class="skd-grid3">' + barSubtes('TWK', 'Tes Wawasan Kebangsaan', s.twk, s.maks.twk, s.ambang.twk, s.ok.twk, s.benar.twk, s.jumlah.twk) +
-        barSubtes('TIU', 'Tes Intelegensia Umum', s.tiu, s.maks.tiu, s.ambang.tiu, s.ok.tiu, s.benar.tiu, s.jumlah.tiu) +
-        barSubtes('TKP', 'Tes Karakteristik Pribadi', s.tkp, s.maks.tkp, s.ambang.tkp, s.ok.tkp, s.benar.tkp, s.jumlah.tkp) + '</div>';
+      // subtes yang tidak diujikan (ujian satu/dua subtes) tidak ditampilkan
+      h += '<div class="skd-grid3">' + (s.maks.twk > 0 ? barSubtes('TWK', 'Tes Wawasan Kebangsaan', s.twk, s.maks.twk, s.ambang.twk, s.ok.twk, s.benar.twk, s.jumlah.twk) : '') +
+        (s.maks.tiu > 0 ? barSubtes('TIU', 'Tes Intelegensia Umum', s.tiu, s.maks.tiu, s.ambang.tiu, s.ok.tiu, s.benar.tiu, s.jumlah.tiu) : '') +
+        (s.maks.tkp > 0 ? barSubtes('TKP', 'Tes Karakteristik Pribadi', s.tkp, s.maks.tkp, s.ambang.tkp, s.ok.tkp, s.benar.tkp, s.jumlah.tkp) : '') + '</div>';
       h += `<div class="skd-card skd-total ${s.ok.total ? 'ok' : 'no'}"><div><span class="skd-muted">SKOR TOTAL</span><div class="skd-total-n">${nTeks(s.total)} <small>/ ${nTeks(s.maks.total)}</small></div></div><div class="skd-total-amb">Passing grade total: <b>${s.ambang.total}</b><br>${s.ok.total ? '<span class="skd-st st-kuat">Total terpenuhi</span>' : '<span class="skd-st st-sangat">Total belum terpenuhi</span>'}</div></div>`;
     }
     h += `<div class="skd-aksi"><button class="skd-btn skd-btn-primary" onclick="ExamEngine.bukaDetailJawaban()"><i class="fa-solid fa-list-check"></i> Detail Jawaban &amp; Pembahasan</button>
@@ -417,9 +418,22 @@ const Skd = (function () {
       <section class="skd-card"><h3 class="skd-h3"><i class="fa-solid fa-chart-line"></i> Grafik Perkembangan Skor</h3>${grafikRiwayat(r)}</section>`;
     h += '<section class="skd-card"><h3 class="skd-h3"><i class="fa-solid fa-clock-rotate-left"></i> Riwayat Simulasi</h3>' + (r.length ? `<div class="skd-scroll"><table class="skd-tbl"><thead><tr><th>Simulasi</th><th>Tanggal</th><th>TWK</th><th>TIU</th><th>TKP</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>` +
       r.slice().reverse().map(x => `<tr><td>${esc(x.judul)}</td><td>${fmtTgl(x.waktu, true)}</td><td>${x.twk === null ? '-' : nTeks(x.twk)}</td><td>${x.tiu === null ? '-' : nTeks(x.tiu)}</td><td>${x.tkp === null ? '-' : nTeks(x.tkp)}</td><td><b>${nTeks(x.nilai)}</b></td><td><span class="skd-st ${x.lulus ? 'st-kuat' : 'st-sangat'}">${x.lulus ? 'Memenuhi' : 'Belum'}</span></td><td class="skd-nowrap"><button class="skd-btn skd-btn-xs skd-btn-primary" onclick="Skd.lihatHasil('${esc(x.sesiId)}')">Hasil</button> <button class="skd-btn skd-btn-xs skd-btn-green" onclick="Skd.sertifikatSesi('${esc(x.sesiId)}')">Sertifikat</button></td></tr>`).join('') + '</tbody></table></div>' : '<p class="skd-muted">Belum ada simulasi yang diselesaikan.</p>') + '</section>';
+    { // leaderboard: pilih salah satu simulasi yang sudah diselesaikan
+      const unik = []; r.slice().reverse().forEach(x => { if (x.ujianId && !unik.some(y => y.ujianId === x.ujianId)) unik.push(x); });
+      h += `<section class="skd-card"><h3 class="skd-h3"><i class="fa-solid fa-trophy"></i> Leaderboard</h3>` + (unik.length
+        ? `<div style="margin-bottom:.7rem"><select id="lb-siswa-ujian" onchange="Skd.muatLeaderboardSiswa()" style="max-width:340px">${unik.map(x => `<option value="${esc(x.ujianId)}">${esc(x.judul)}</option>`).join('')}</select></div><div id="lb-siswa-isi"></div>`
+        : '<p class="skd-muted">Selesaikan satu simulasi untuk melihat papan peringkat.</p>') + '</section>';
+    }
     h += `<section class="skd-card"><h3 class="skd-h3"><i class="fa-solid fa-bullseye"></i> Analisis Materi (gabungan semua simulasi)</h3>${an && an.ok ? htmlAnalisisMateri(an.topik) : '<p class="skd-muted">Belum dapat dimuat.</p>'}</section>
       <div class="skd-aksi"><button class="skd-btn skd-btn-grey" onclick="Skd.tampilDaftar()"><i class="fa-solid fa-arrow-left"></i> Kembali ke Daftar Simulasi</button></div>`;
     box.innerHTML = h;
+    muatLeaderboardSiswa();
+  }
+  async function muatLeaderboardSiswa() {
+    const sel = $('lb-siswa-ujian'), isi = $('lb-siswa-isi'); if (!sel || !isi || !sel.value) return;
+    isi.innerHTML = '<p class="skd-muted">Memuat...</p>';
+    const res = await api('getLeaderboard', { ujianId: sel.value, siswaId: state.user.id, limit: 10 });
+    isi.innerHTML = res && res.ok ? renderLeaderboard_(res.data, { siswa: true }) : '<p class="skd-muted">Leaderboard belum dapat dimuat.</p>';
   }
 
   // ---------------- sertifikat (cetak / simpan PDF) ----------------
@@ -428,7 +442,8 @@ const Skd = (function () {
     const nomor = hashHex(String(d.sesiId) + '|' + d.nama + '|' + s.total, 32);
     const base = location.href.split('#')[0]; let qr = '';
     try { qr = qrSvg('SIMULASI-SKD|' + nomor + '|' + d.nama + '|' + s.total + '|' + fmtTgl(d.waktu)); } catch (e) { qr = ''; }
-    const baris = [['Tes Wawasan Kebangsaan', s.twk, s.ok && s.ok.twk, s.ambang && s.ambang.twk], ['Tes Intelejensia Umum', s.tiu, s.ok && s.ok.tiu, s.ambang && s.ambang.tiu], ['Tes Karakteristik Pribadi', s.tkp, s.ok && s.ok.tkp, s.ambang && s.ambang.tkp]];
+    const barisSemua = [['Tes Wawasan Kebangsaan', s.twk, s.ok && s.ok.twk, s.ambang && s.ambang.twk], ['Tes Intelejensia Umum', s.tiu, s.ok && s.ok.tiu, s.ambang && s.ambang.tiu], ['Tes Karakteristik Pribadi', s.tkp, s.ok && s.ok.tkp, s.ambang && s.ambang.tkp]];
+    const baris = barisSemua.filter((b, k) => !(d.skd && s.maks && s.maks[['twk', 'tiu', 'tkp'][k]] === 0)); // subtes yang tidak diujikan tidak dicantumkan
     return `<section class="cert"><div class="cert-frame"><div class="cert-corner tl"></div><div class="cert-corner br"></div>
       <img class="cert-logo-tr" src="icons/bkn.png" alt="">
       <div class="cert-in"><h1>SERTIFIKAT</h1><h2>SELEKSI KOMPETENSI DASAR</h2><div class="cert-sim">HASIL SIMULASI LATIHAN</div>
@@ -646,7 +661,7 @@ const Skd = (function () {
   });
 
   return { setUser, isoTgl, tglPanjang, toggleSandi, pilihPortal, buatCaptcha, tutupModal, renderSoal, qrMatrix, qrSvg, bukaKartuLogin, cetakKartuLogin,
-    tampilDaftar, tampilInfo, mintaKonfirmasiMulai, mulaiUjian, lewatkan, toggleNav, tampilHasil, lihatHasil, tampilDashboard, sertifikatSesi, sertifikatTerpilih,
+    tampilDaftar, tampilInfo, mintaKonfirmasiMulai, mulaiUjian, lewatkan, toggleNav, tampilHasil, lihatHasil, tampilDashboard, muatLeaderboardSiswa, sertifikatSesi, sertifikatTerpilih,
     muatTrenDashboard, muatTabMateri, isiPilihanSiswaMateri, muatAnalisisMateriGuru, ringkasanKelasMateri, grafikGaris, htmlAnalisisMateri, barcode39, hashHex, htmlSertifikat,
     tampilKonfirmasiData: tampilDaftar};
 })();
