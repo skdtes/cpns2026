@@ -1138,7 +1138,9 @@ function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGamb
     // kolom Kategori di file (template lama berisi "Simulasi"/"IPA", yang dulu
     // membuat soal menumpuk di kategori lama). Kolom Kategori di file hanya dipakai
     // bila tidak ada mapel yang sedang dibuka.
-    kategori: kategoriDefault ? String(kategoriDefault).trim() : normalisasiKategoriSoal_(ambil('kategori') || 'Kuis'),
+    // SKD: bila kolom Kategori di file berisi TWK / TIU / TKP, baris itu masuk ke kategori tsb (satu file boleh campuran
+    // TWK+TIU+TKP). Selain itu, ikut mapel yang sedang dibuka seperti biasa.
+    kategori: (function () { const st = skdSubtes_({ kategori: ambil('kategori') }); if (st) return st; return kategoriDefault ? String(kategoriDefault).trim() : normalisasiKategoriSoal_(ambil('kategori') || 'Kuis'); })(),
     subkategori: ambil('subkategori') || ambil('sub-kategori'),
     topik: ambil('topik'),
     tipe,
@@ -1239,6 +1241,18 @@ function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGamb
 // dipakai untuk hasil XLSX.utils.sheet_to_json({header:1}) MAUPUN hasil parse
 // <table> HTML dari dokumen Word (lihat Guru.importSoalDariDocx). `peringatan`
 // (opsional, array): diteruskan ke barisTabelJadiSoal_ -- lihat penjelasan di sana.
+// Ringkasan hasil impor per subtes + peringatan untuk baris yang tak bisa dikenali subtesnya.
+function ringkasImporSkd_(soalList) {
+  const n = { TWK: 0, TIU: 0, TKP: 0 }; let lain = 0;
+  soalList.forEach(x => { const st = skdSubtes_(x); if (st) n[st]++; else lain++; });
+  const bagian = ['TWK', 'TIU', 'TKP'].filter(k => n[k]).map(k => k + ' ' + n[k]).join(' · ');
+  return { teks: bagian ? ' (' + bagian + ')' : '', lain };
+}
+function peringatanTanpaSubtes_(lain) {
+  if (!lain) return;
+  Dialog.info({ judul: 'Sebagian Soal Belum Masuk TWK/TIU/TKP', tipe: 'warning', ikon: 'fa-triangle-exclamation',
+    pesan: `**${lain} soal** tidak punya kategori TWK, TIU, atau TKP (kolom Kategori kosong/lain dan kategori yang sedang dibuka bukan TWK/TIU/TKP), jadi **tidak bisa dipakai di ujian SKD**.\n\nIsi kolom Kategori dengan TWK, TIU, atau TKP lalu impor ulang, atau buka kategori TWK/TIU/TKP dahulu sebelum mengimpor.` });
+}
 function barisTabelKeSoalList_(rows, guruId, kategoriDefault, petaGambar, peringatan) {
   if (!rows.length) return [];
   const headerIdx = {};
@@ -5387,7 +5401,7 @@ const Guru = {
       if (soalList.length === 0) { toast('Tidak ada baris soal valid ditemukan di file. Pastikan baris pertama adalah header & kolom "Pertanyaan" terisi.', 'error'); return; }
       const res = await api('importSoal', { soalList: JSON.stringify(soalList) });
       if (res.ok) {
-        toast(res.count + ' soal berhasil diimpor.', 'success');
+        { const rg = ringkasImporSkd_(soalList); toast(res.count + ' soal berhasil diimpor' + rg.teks + '.', 'success'); peringatanTanpaSubtes_(rg.lain); }
         Guru.muatBankSoal();
         if (peringatan.length) Dialog.info({
           judul: 'Impor Berhasil, Perlu Diperiksa', tipe: 'warning', ikon: 'fa-file-circle-exclamation',
@@ -5529,7 +5543,7 @@ const Guru = {
         if (res.ok) {
           let ket = '';
           if (jumlahTempel > 0) ket = ` (${jumlahTempel - gagalTempel} gambar tempelan di Word ikut otomatis terunggah${gagalTempel ? `, ${gagalTempel} gagal` : ''})`;
-          toast(res.count + ' soal berhasil diimpor dari Word' + ket + '.', 'success');
+          { const rg = ringkasImporSkd_(soalList); toast(res.count + ' soal berhasil diimpor dari Word' + rg.teks + ket + '.', 'success'); peringatanTanpaSubtes_(rg.lain); }
           Guru.muatBankSoal();
           if (peringatan.length) Dialog.info({
             judul: 'Impor Berhasil, Perlu Diperiksa', tipe: 'warning', ikon: 'fa-file-circle-exclamation',
@@ -5696,6 +5710,11 @@ const Guru = {
     const daftar = (res.ok ? res.data : []).filter(s => ((s.status || 'aktif') !== 'arsip' || terpilih.includes(s.id)) && skdSubtes_(s));
     Guru._poolSkd = { TWK: [], TIU: [], TKP: [] };
     daftar.forEach(s => Guru._poolSkd[skdSubtes_(s)].push(s));
+    { // soal aktif yang namanya tidak memuat TWK/TIU/TKP -> tak bisa dipakai ujian; beri tahu kategorinya
+      const peta = {}; let n = 0;
+      (res.ok ? res.data : []).forEach(s => { if ((s.status || 'aktif') !== 'arsip' && !skdSubtes_(s)) { n++; const k = String(s.kategori || '(tanpa kategori)'); peta[k] = (peta[k] || 0) + 1; } });
+      Guru._soalTanpaSubtes = { n, kategori: Object.keys(peta).map(k => `${k} (${peta[k]})`) };
+    }
     if (!daftar.length) { cont.innerHTML = '<p class="subtitle">Belum ada soal TWK/TIU/TKP' + (subkategori ? ' pada paket ini' : '') + '. Buat kategori bernama TWK, TIU, TKP di Bank Soal lalu isi soalnya.</p>'; Guru.hitungPilihSkd(); return; }
     const ada = idsTerpilih && idsTerpilih.length;
     cont.innerHTML = ['TWK', 'TIU', 'TKP'].map(st => `<div class="skd-poolgrup"><b>${st}</b> <span class="subtitle">(${Guru._poolSkd[st].length} soal tersedia)</span>` + Guru._poolSkd[st].map(s => `
@@ -5742,6 +5761,8 @@ const Guru = {
         ? `<b>${b.st}</b> kurang <b>${b.m - b.ada}</b> soal (diminta ${b.m}, tersedia ${b.ada})`
         : `<b>${b.st}</b> baru terpilih ${b.pilih} dari ${b.m}`).join('; ') +
         `. Tambahkan soalnya di Bank Soal (kategori ${bermasalah.filter(b => b.kelas === 'kurang').map(b => b.st).join('/') || 'terkait'}) atau kecilkan jumlah yang diminta.</div>`;
+      const ts = Guru._soalTanpaSubtes;
+      if (ts && ts.n > 0) h += `<div class="skd-kurang-banner warn"><b>${ts.n} soal di Bank Soal tidak terhitung</b> karena nama kategorinya tidak memuat TWK, TIU, atau TKP: ${ts.kategori.map(escapeHtml_).join(', ')}. Impor ulang dengan kolom Kategori berisi TWK/TIU/TKP, atau beri nama kategori soal tsb TWK/TIU/TKP.</div>`;
     } else if (baris.some(b => b.m > 0)) {
       h += `<div class="skd-kurang-banner ok">✔ Jumlah soal sesuai permintaan: TWK ${n.TWK} · TIU ${n.TIU} · TKP ${n.TKP} = ${n.TWK + n.TIU + n.TKP} soal.</div>`;
     }

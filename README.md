@@ -59,6 +59,9 @@ Rumus tampil rapi (KaTeX, dibundel lokal di `vendor/katex/` sehingga tetap jalan
 * **Form Tambah Soal:** tombol **RUMUS Σ** membuka kotak rumus dengan pratinjau langsung dan tombol simbol (pecahan, pangkat, akar, ≤ ≥ ≠, π, ∑, ∫, log, dst). Klik 2× pada rumus di kotak editor untuk mengubahnya.
 * Pemasangan: unggah juga folder `vendor/` ke GitHub.
 
+## Impor satu file campuran TWK + TIU + TKP
+Kolom **Kategori** di file (TWK / TIU / TKP) kini dipakai per baris saat impor, jadi satu file 110 soal bisa diimpor sekali jalan dari halaman kategori mana pun; tiap baris masuk ke kategori TWK, TIU, atau TKP-nya. Baris dengan kategori lain mengikuti mapel yang sedang dibuka. Form ujian juga menampilkan kategori soal yang tidak terhitung (namanya tak memuat TWK/TIU/TKP).
+
 ## Keterangan jumlah soal (TWK/TIU/TKP) pada ujian
 * Di form ujian muncul panel **Diminta / Tersedia / Terpilih** per subtes, merah bila soal di Bank Soal kurang dari jumlah yang diminta.
 * Saat **Simpan Ujian** dengan jumlah soal kurang, muncul konfirmasi (*Tetap Simpan* / *Kembali & Perbaiki*).
