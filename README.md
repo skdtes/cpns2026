@@ -90,6 +90,9 @@ Teks pecahan biasa seperti `1/15` atau `2/30` di soal, opsi, dan pembahasan otom
 * **Alat pemotong gambar** (`alat-potong-gambar.html`, buka langsung di peramban): memecah satu gambar gabungan (soal + pilihan A–E) menjadi `nama_soal.png`, `nama_A.png` ... `nama_E.png` secara otomatis, lengkap dengan baris siap-tempel untuk Excel dan unduhan .zip.
 * Sheet kedua template Excel kini bernama **Petunjuk** (memuat rumus dan gambar opsi).
 
+## Tampilan Kelola Ujian (v14)
+Daftar ujian dirapikan: judul bar dengan ringkasan (jumlah ujian & yang aktif), kolom Komposisi Soal selaras (TWK/TIU/TKP + total), token dengan tombol **salin**, jadwal Mulai/Selesai bertumpuk rapi, tombol aksi (Token Kelas, Ubah, Hapus) satu baris dengan ikon. Gaya disuntik dari `app.js` sehingga ikut tema yang dipilih.
+
 ## Dihapus dari versi sebelumnya
 Seluruh fitur survei (Survei Karakter/Sulingjar) dan identitas ANBK/TKA/sekolah. Sheet `Survei`/`PaketSurvei` lama tidak dipakai lagi (boleh dihapus manual).
 

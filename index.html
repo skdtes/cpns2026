@@ -394,10 +394,13 @@
       <h2>Kelola Ujian</h2>
       <p class="subtitle">Atur durasi, jadwal token, toleransi keterlambatan, dan batas pelanggaran anti-cheat.</p>
       <div class="panel">
-        <div class="toolbar">
-          <div></div>
-          <button type="button" class="secondary btn-segarkan" title="Ambil data terbaru tanpa mengubah pilihan ujian &amp; kelas" onclick="Guru.segarkan('tab-ujian', this)"><i class="fa-solid fa-rotate"></i> Segarkan</button><span class="segar-info" id="segar-info-tab-ujian" aria-live="polite"></span>
-          <button class="accent" onclick="UI.bukaModalUjian()">+ Buat Ujian</button>
+        <div class="toolbar ujian-toolbar">
+          <div class="toolbar-judul"><h3>Daftar Ujian</h3><span class="toolbar-sub" id="ujian-ringkas">Memuat...</span></div>
+          <div class="toolbar-actions">
+            <span class="segar-info" id="segar-info-tab-ujian" aria-live="polite"></span>
+            <button type="button" class="secondary btn-segarkan" title="Ambil data terbaru tanpa mengubah pilihan ujian &amp; kelas" onclick="Guru.segarkan('tab-ujian', this)"><i class="fa-solid fa-rotate"></i> Segarkan</button>
+            <button class="accent" onclick="UI.bukaModalUjian()"><i class="fa-solid fa-plus"></i> Buat Ujian</button>
+          </div>
         </div>
 
         <div id="daftar-ujian">Memuat...</div>
@@ -1385,7 +1388,7 @@
 </div>
 
 <script src="config.js"></script>
-<script src="app.js?v=82"></script>
+<script src="app.js?v=83"></script>
 <script src="skd.js?v=80"></script>
 </body>
 </html>

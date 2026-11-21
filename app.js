@@ -1950,6 +1950,42 @@ function toast(msg, jenis) {
 // diklik, dialog menumpuk). Dengan disuntik dari app.js, dialog dijamin tampil di tengah layar & menutupi halaman.
 // ----------------------------------------------------------------------------
 const VERSI_APLIKASI = '43';
+const CSS_KELOLA = `
+/* ===== Kelola Ujian: daftar yang rapi ===== */
+.ujian-toolbar { align-items: center; padding-bottom: 1rem; margin-bottom: .4rem; border-bottom: 1px solid var(--c-line); }
+.toolbar-judul h3 { margin: 0; font-size: 1.08rem; font-weight: 600; }
+.toolbar-sub { display: block; margin-top: .15rem; font-size: .8rem; color: var(--c-muted); }
+.ujian-toolbar .toolbar-actions { align-items: center; gap: .6rem; flex-wrap: nowrap; }
+.ujian-toolbar .toolbar-actions > button { white-space: nowrap; }
+.ujian-toolbar .segar-info { margin-right: .2rem; }
+table.tabel-ujian { border-collapse: separate; border-spacing: 0; }
+table.tabel-ujian th { white-space: nowrap; padding: .75rem .8rem; font-size: .72rem; letter-spacing: .06em; vertical-align: bottom; }
+table.tabel-ujian td { padding: 1rem .8rem; vertical-align: top; }
+table.tabel-ujian th.tengah, table.tabel-ujian td.tengah { text-align: center; }
+table.tabel-ujian .sel-judul { min-width: 170px; }
+table.tabel-ujian .sel-judul strong { display: block; font-size: .95rem; line-height: 1.3; }
+table.tabel-ujian .judul-meta { display: block; margin-top: .25rem; font-size: .76rem; color: var(--c-muted); }
+table.tabel-ujian .kom-sel { min-width: 190px; font-size: .8rem; }
+table.tabel-ujian .kom-baris { display: flex; justify-content: space-between; gap: 1rem; padding: .12rem 0; white-space: nowrap; line-height: 1.45; }
+table.tabel-ujian .kom-baris > b { font-weight: 700; letter-spacing: .02em; }
+table.tabel-ujian .kom-total { display: flex; justify-content: space-between; gap: 1rem; margin-top: .3rem; padding-top: .35rem; border-top: 1px dashed var(--c-line); font-weight: 700; }
+.token-sel { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .25rem .2rem .65rem; border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-bg); }
+.token-kode { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .98rem; font-weight: 700; letter-spacing: .12em; background: none; padding: 0; }
+.token-salin { all: unset; cursor: pointer; width: 1.9rem; height: 1.9rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--c-muted); }
+.token-salin:hover { background: var(--c-hover); color: var(--c-text); }
+table.tabel-ujian .sel-token-kelas { font-size: .8rem; max-width: 190px; }
+table.tabel-ujian .angka-besar { font-size: 1.15rem; font-weight: 700; display: block; line-height: 1.2; }
+table.tabel-ujian .satuan { font-size: .74rem; color: var(--c-muted); }
+table.tabel-ujian .sel-jadwal { font-size: .8rem; white-space: nowrap; }
+table.tabel-ujian .sel-jadwal > div { line-height: 1.5; }
+table.tabel-ujian .sel-jadwal > div > span { display: inline-block; width: 3.4rem; color: var(--c-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+.aksi-ujian { display: flex; gap: .4rem; justify-content: flex-end; }
+.aksi-ujian > button { white-space: nowrap; display: inline-flex; align-items: center; gap: .35rem; }
+table.tabel-ujian .aksi-ujian-sel { text-align: right; }
+table.tabel-ujian.ledger-kartu .aksi-ujian { flex-wrap: wrap; justify-content: flex-start; }
+table.tabel-ujian.ledger-kartu .sel-jadwal { white-space: normal; }
+@media (max-width: 760px) { .ujian-toolbar .toolbar-actions { flex-wrap: wrap; } .toolbar-judul { width: 100%; } }
+`;
 const CSS_RUMUS = `
 /* ===== Rumus matematika (KaTeX) di layar ujian, pratinjau, hasil & pembahasan ===== */
 .question-card .katex, .skd-pertanyaan .katex, .skd-opsi-t .katex, .dj-card .katex, .dj-pembahasan .katex { font-size: 1.12em; }
@@ -2180,7 +2216,7 @@ function injectGayaDialog_() {
   if (document.getElementById('dlg-gaya')) return;
   const el = document.createElement('style');
   el.id = 'dlg-gaya';
-  el.textContent = CSS_DIALOG + CSS_SEGAR + CSS_RUMUS + CSS_FSBUKTI + CSS_SHEET + CSS_KAMERA + CSS_GALERI + CSS_KUNCI;
+  el.textContent = CSS_DIALOG + CSS_SEGAR + CSS_RUMUS + CSS_KELOLA + CSS_FSBUKTI + CSS_SHEET + CSS_KAMERA + CSS_GALERI + CSS_KUNCI;
   document.head.appendChild(el);
 }
 injectGayaDialog_();
@@ -5756,26 +5792,30 @@ const Guru = {
     if (!res.ok) return gagalMuat_(cont, 'Gagal memuat.');
     state.guru.ujianList = res.data;
     if (res.data.length === 0) { cont.innerHTML = '<p class="subtitle">Belum ada ujian.</p>'; return; }
-    cont.innerHTML = `<table class="ledger"><thead><tr>
-        <th>Judul</th><th>Komposisi Soal</th><th>Token</th><th>Token Aktif untuk</th><th>Durasi</th><th>Jadwal</th><th>Maks. Pelanggaran</th><th>Status</th><th></th>
-
+    { const aktif = res.data.filter(u => u.status === 'aktif').length; const r = document.getElementById('ujian-ringkas'); if (r) r.textContent = `${res.data.length} ujian · ${aktif} aktif`; }
+    cont.innerHTML = `<div class="table-scroll-x"><table class="ledger tabel-ujian"><thead><tr>
+        <th>Ujian</th><th>Komposisi Soal</th><th>Token</th><th>Token Aktif untuk</th><th class="tengah">Durasi</th><th>Jadwal</th><th class="tengah">Maks. Pelanggaran</th><th>Status</th><th></th>
       </tr></thead><tbody>` + res.data.map(u => `
         <tr>
-          <td><strong>${escapeHtml_(u.judul)}</strong><br><span style="color:var(--c-muted);font-size:.78rem">${labelKategori(u.kategori)}${u.subkategori ? ' • ' + escapeHtml_(u.subkategori) : ''}</span></td>
-          <td id="kom-${u.id}" class="kom-sel" style="font-size:.8rem;min-width:150px"><span class="subtitle">Memuat...</span></td>
-          <td><code style="font-size:1rem;font-weight:700">${u.token}</code></td>
-          <td id="tk-ringkas-${u.id}" style="font-size:.8rem;max-width:170px">${ringkasTokenKelas_(u)}</td>
-          <td>${u.durasi_menit} menit</td>
-          <td style="font-size:.8rem">${formatTanggal(u.mulai)}<br>s/d ${formatTanggal(u.selesai)}</td>
-          <td>${u.max_pelanggaran}</td>
+          <td class="sel-judul"><strong>${escapeHtml_(u.judul)}</strong><span class="judul-meta">${labelKategori(u.kategori)}${u.subkategori ? ' • ' + escapeHtml_(u.subkategori) : ''}</span></td>
+          <td id="kom-${u.id}" class="kom-sel"><span class="subtitle">Memuat...</span></td>
+          <td><span class="token-sel"><code class="token-kode">${escapeHtml_(u.token)}</code><button type="button" class="token-salin" title="Salin token" aria-label="Salin token" onclick="Guru.salinToken('${escapeHtml_(u.token)}')"><i class="fa-regular fa-copy"></i></button></span></td>
+          <td id="tk-ringkas-${u.id}" class="sel-token-kelas">${ringkasTokenKelas_(u)}</td>
+          <td class="tengah"><span class="angka-besar">${u.durasi_menit}</span><span class="satuan">menit</span></td>
+          <td class="sel-jadwal"><div><span>Mulai</span>${formatTanggal(u.mulai)}</div><div><span>Selesai</span>${formatTanggal(u.selesai)}</div></td>
+          <td class="tengah">${u.max_pelanggaran}</td>
           <td><span class="badge ${u.status === 'aktif' ? 'ok' : 'no'}">${u.status}</span></td>
-          <td>
-            <button class="accent small" onclick="Guru.bukaTokenKelas('${u.id}')" title="Aktifkan / nonaktifkan token per kelas">🔑 Token Kelas</button>
-            <button class="secondary small" onclick='Guru.bukaEditUjian("${u.id}")'>Ubah</button>
-            <button class="danger small" onclick="Guru.hapusUjian('${u.id}')">Hapus</button>
-          </td>
-        </tr>`).join('') + `</tbody></table>`;
+          <td class="aksi-ujian-sel"><div class="aksi-ujian">
+            <button class="accent small" onclick="Guru.bukaTokenKelas('${u.id}')" title="Aktifkan / nonaktifkan token per kelas"><i class="fa-solid fa-key"></i> Token Kelas</button>
+            <button class="secondary small" onclick='Guru.bukaEditUjian("${u.id}")'><i class="fa-solid fa-pen"></i> Ubah</button>
+            <button class="danger small" onclick="Guru.hapusUjian('${u.id}')" title="Hapus ujian"><i class="fa-solid fa-trash"></i> Hapus</button>
+          </div></td>
+        </tr>`).join('') + `</tbody></table></div>`;
     Guru.isiKomposisiUjian_(res.data);
+  },
+  async salinToken(t) {
+    try { await navigator.clipboard.writeText(String(t)); toast('Token ' + t + ' disalin.', 'success'); }
+    catch (e) { toast('Salin manual token: ' + t, 'error'); }
   },
   // Komposisi soal tiap ujian (TWK/TIU/TKP) dibandingkan dengan jumlah yang diminta saat ujian dibuat.
   async isiKomposisiUjian_(daftar) {
@@ -5793,14 +5833,14 @@ const Guru = {
         const m = tg ? tg[st] : null;
         const kurang = m !== null ? Math.max(0, m - n[st]) : (n[st] === 0 ? 1 : 0);
         if (kurang) ada = true;
-        if (!kurang) return `<div class="kom-baris ok"><b>${st}</b> ${n[st]}${m !== null ? ' / ' + m : ''} soal</div>`;
+        if (!kurang) return `<div class="kom-baris ok"><b>${st}</b><span>${n[st]}${m !== null ? ' / ' + m : ''} soal</span></div>`;
         return m !== null
-          ? `<div class="kom-baris kurang"><b>${st}</b> ${n[st]} / ${m} soal — <b>kurang ${kurang}</b></div>`
-          : `<div class="kom-baris kurang"><b>${st}</b> 0 soal — <b>belum ada soal</b></div>`;
+          ? `<div class="kom-baris kurang"><b>${st}</b><span>${n[st]} / ${m} soal · kurang ${kurang}</span></div>`
+          : `<div class="kom-baris kurang"><b>${st}</b><span>belum ada soal</span></div>`;
       }).join('');
       if (hilang) { ada = true; h += `<div class="kom-baris kurang">⚠ ${hilang} soal sudah dihapus dari Bank Soal</div>`; }
       if (lain) h += `<div class="kom-baris">${lain} soal tanpa subtes (tidak terhitung)</div>`;
-      h += `<div class="kom-total ${ada ? 'kurang' : 'ok'}">Total ${n.TWK + n.TIU + n.TKP} soal${tg ? ' dari ' + (tg.TWK + tg.TIU + tg.TKP) + ' diminta' : ''}${ada ? ' — <b>belum lengkap</b>' : ''}</div>`;
+      h += `<div class="kom-total ${ada ? 'kurang' : 'ok'}"><span>Total</span><span>${n.TWK + n.TIU + n.TKP}${tg ? ' / ' + (tg.TWK + tg.TIU + tg.TKP) : ''} soal${ada ? ' · belum lengkap' : ''}</span></div>`;
       if (!tg) h += '<div class="kom-baris" style="opacity:.7">Jumlah diminta belum tersimpan (ujian lama). Buka “Ubah” lalu simpan.</div>';
       el.innerHTML = h;
     });
