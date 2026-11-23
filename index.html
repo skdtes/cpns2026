@@ -3,47 +3,56 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Simulasi TKA | Pusmendik</title>
+<title>Simulasi CAT SKD CPNS</title>
 
 <!-- ======================= LOGO / IKON APLIKASI (PWA) =======================
      Supaya saat halaman ini "Ditambahkan ke Layar Utama" (Add to Home Screen)
      di HP, ikon aplikasi otomatis muncul -- bukan cuma screenshot polos.
-     Berkas ikon ada di folder icons/ (logo bawaan: ikon ungu-pink + lambang sekolah, lihat
-     README bagian "Ganti Logo Aplikasi"). Kalau guru sudah menyimpan logo
+     Berkas ikon ada di folder icons/ (logo bawaan: logo CAT BKN). Kalau guru sudah menyimpan logo
      asli lewat Portal Guru > Pengaturan > Identitas Aplikasi, id="app-favicon"
      dan id="app-apple-icon" di bawah ini otomatis diganti ke logo itu juga
      (lihat terapkanBranding() di app.js) -- supaya ikon Layar Utama ikut
      memakai logo terbaru, tidak perlu edit file ini secara manual lagi. -->
 <link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" sizes="32x32" href="icons/logo-test-32.png?v=5" id="app-favicon">
-<link rel="icon" type="image/png" sizes="192x192" href="icons/logo-test-192.png?v=5">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=5" id="app-apple-icon">
-<meta name="application-name" content="TKA SPENDASER">
-<meta name="theme-color" content="#326698">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png?v=1" id="app-favicon">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png?v=1">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=1" id="app-apple-icon">
+<meta name="application-name" content="CAT SKD CPNS">
+<meta name="theme-color" content="#2a4a82">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="TKA SPENDASER" id="app-apple-title">
+<meta name="apple-mobile-web-app-title" content="CAT SKD CPNS" id="app-apple-title">
 <meta name="mobile-web-app-capable" content="yes">
 
 <!-- PERFORMA: sambungan ke CDN dibuka lebih awal, dan CSS pihak ketiga (ikon & KaTeX)
      dimuat TANPA memblokir tampilan halaman login (dulu halaman kosong sampai keduanya selesai diunduh). -->
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="dns-prefetch" href="https://script.google.com">
-<link rel="stylesheet" href="style.css?v=63">
+<link rel="stylesheet" href="style.css?v=73">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap">
-<link rel="stylesheet" href="anbk.css?v=62">
+<link rel="stylesheet" href="skd.css?v=80">
 <!-- Font Awesome: ikon sidebar & tombol (gaya dashboard modern) -->
 <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
 <!-- KaTeX: render persamaan matematika (LaTeX) di dalam soal -->
-<link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css" onload="this.onload=null;this.rel='stylesheet'">
+<!-- KaTeX dibundel LOKAL (vendor/katex) supaya rumus tetap tampil walau CDN lambat/terblokir; CDN hanya cadangan -->
+<link rel="stylesheet" href="vendor/katex/katex.min.css?v=1">
 <noscript>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
 </noscript>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script defer src="vendor/katex/katex.min.js?v=1" onerror="window.__katexCadangan&&window.__katexCadangan()"></script>
+<script defer src="vendor/katex/auto-render.min.js?v=1" onerror="window.__katexCadangan&&window.__katexCadangan()"></script>
+<script>
+  // Cadangan: bila berkas lokal gagal dimuat, ambil KaTeX dari CDN (sekali saja).
+  window.__katexCadangan = function () {
+    if (window.__katexCadanganJalan) return; window.__katexCadanganJalan = true;
+    var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css'; document.head.appendChild(css);
+    var a = document.createElement('script'); a.src = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js';
+    a.onload = function () { var b = document.createElement('script'); b.src = 'https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js'; document.head.appendChild(b); };
+    document.head.appendChild(a);
+  };
+</script>
 <!-- SheetJS (baca/tulis .xlsx) & Mammoth (baca .docx) HANYA dipakai Portal Guru, jadi TIDAK lagi
      dimuat di sini (dulu ~1,5 MB memblokir halaman untuk SETIAP siswa). Keduanya dimuat otomatis
      saat dibutuhkan lewat muatPustaka_() di app.js. -->
@@ -54,20 +63,22 @@
 <div id="toast"></div>
 
 <!-- ======================= LOGIN ======================= -->
-<div id="login-screen" class="anbk-page anbk-login">
-  <header class="anbk-hero"><div class="anbk-hero-in"><div class="anbk-brand"><img class="anbk-logo-tw" src="icons/tutwuri.png" alt="Tut Wuri Handayani"><img class="anbk-logo-sch" src="icons/smpn2.png" alt="SMP Negeri 2 Seririt"><div class="anbk-brand-t"><b>PUSMENDIK</b><span>APLIKASI ANBK</span></div></div></div></header>
-  <main class="anbk-center">
-    <form id="form-login" class="anbk-card anbk-card-login" onsubmit="Auth.login(event)" autocomplete="on">
-      <h1 id="login-judul">Selamat Datang</h1>
-      <p id="login-sub">Silakan login dengan menggunakan username dan password yang anda miliki</p>
-      <div class="anbk-ig"><i class="fa-solid fa-circle-user"></i><input type="text" id="login-username" placeholder="Username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required></div>
-      <div class="anbk-ig"><i class="fa-solid fa-lock"></i><input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required><button type="button" class="anbk-eye" tabindex="-1" onclick="Anbk.toggleSandi(this)" aria-label="Lihat sandi"><i class="fa-solid fa-eye"></i></button></div>
-      <button type="submit" id="btn-login-submit" class="anbk-btn anbk-btn-primary anbk-btn-block">Login</button>
-      <div id="login-error" class="anbk-err" role="alert"></div>
-      <p id="login-mode-status" class="anbk-modestatus"></p>
+<div id="login-screen" class="skd-page skd-login">
+  <main class="skd-login-wrap">
+    <form id="form-login" class="skd-login-card" onsubmit="Auth.login(event)" autocomplete="on">
+      <img class="skd-login-logo" src="icons/bkn.png" alt="CAT BKN">
+      <h1 id="login-judul">SIMULASI CAT BKN</h1>
+      <p id="login-sub">Silakan masukkan username dan password Anda</p>
+      <label class="skd-lbl" for="login-username"><i class="fa-solid fa-user"></i> Username / Email</label>
+      <div class="skd-ig"><input type="text" id="login-username" placeholder="Masukkan username atau email" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" required></div>
+      <label class="skd-lbl" for="login-password"><i class="fa-solid fa-lock"></i> Password</label>
+      <div class="skd-ig"><input type="password" id="login-password" placeholder="Masukkan password" autocomplete="current-password" required><button type="button" class="skd-eye" tabindex="-1" onclick="Skd.toggleSandi(this)" aria-label="Tampilkan password"><i class="fa-solid fa-eye"></i></button></div>
+      <button type="submit" id="btn-login-submit" class="skd-btn skd-btn-primary skd-btn-block"><i class="fa-solid fa-right-to-bracket"></i> MASUK</button>
+      <div id="login-error" class="skd-err" role="alert"></div>
+      <p id="login-mode-status" class="skd-modestatus"></p>
+      <p class="skd-login-foot">Simulasi latihan SKD CPNS &middot; <a href="#guru" onclick="Skd.pilihPortal('guru',event)" id="skd-link-guru">Portal Guru</a><a href="#" onclick="Skd.pilihPortal('siswa',event)" id="skd-link-siswa" class="hidden">Login Peserta</a></p>
     </form>
   </main>
-  <footer class="anbk-foot">Aplikasi simulasi latihan TKA &middot; SMP Negeri 2 Seririt &middot; <a href="#guru" onclick="Anbk.pilihPortal('guru',event)" id="anbk-link-guru">Portal Guru</a><a href="#" onclick="Anbk.pilihPortal('siswa',event)" id="anbk-link-siswa" class="hidden">Portal Peserta</a></footer>
 </div>
 
 <!-- ======================= MODAL: DETAIL PELANGGARAN SISWA ======================= -->
@@ -128,7 +139,7 @@
 <div id="guru-portal" class="shell hidden">
   <div class="mobile-topbar">
     <span class="mt-logo app-logo-slot"><i class="fa-solid fa-graduation-cap"></i></span>
-    <span class="mobile-topbar-title"><small class="mt-brand"><span class="app-brand-nama">ANBK SMP Negeri 2 Seririt</span> · Guru</small><strong id="mobile-title-guru">Dashboard</strong></span>
+    <span class="mobile-topbar-title"><small class="mt-brand"><span class="app-brand-nama">Simulasi CAT SKD CPNS</span> · Guru</small><strong id="mobile-title-guru">Dashboard</strong></span>
     <button type="button" class="hamburger-btn" onclick="UI.bukaMenuMobile('guru')" aria-label="Buka menu">☰</button>
   </div>
   <nav class="bottom-nav" id="bottom-nav-guru" aria-label="Navigasi utama">
@@ -144,7 +155,7 @@
     <div class="sidebar-brand">
       <span class="sidebar-logo app-logo-slot"><i class="fa-solid fa-graduation-cap"></i></span>
       <span>
-        <h2 class="brand app-brand-nama">ANBK SMP Negeri 2 Seririt</h2>
+        <h2 class="brand app-brand-nama">Simulasi CAT SKD CPNS</h2>
         <p class="brand-sub">Portal Guru</p>
       </span>
     </div>
@@ -155,13 +166,10 @@
       <button class="nav-tab" data-tab="tab-ujian" onclick="UI.gantiTabGuru('tab-ujian')"><i class="fa-solid fa-calendar-days nav-ico"></i><span>Kelola Ujian</span></button>
       <button class="nav-tab" data-tab="tab-rekap" onclick="UI.gantiTabGuru('tab-rekap')"><i class="fa-solid fa-clipboard-check nav-ico"></i><span>Rekap Nilai</span></button>
       <button class="nav-tab" data-tab="tab-leaderboard" onclick="UI.gantiTabGuru('tab-leaderboard')"><i class="fa-solid fa-trophy nav-ico"></i><span>Leaderboard</span></button>
-      <button class="nav-tab" data-tab="tab-lb-survei" onclick="UI.gantiTabGuru('tab-lb-survei')"><i class="fa-solid fa-ranking-star nav-ico"></i><span>Leaderboard Survei</span></button>
-      <button class="nav-tab" data-tab="tab-survei" onclick="UI.gantiTabGuru('tab-survei')"><i class="fa-solid fa-square-poll-vertical nav-ico"></i><span>Hasil Survei</span></button>
+      <button class="nav-tab" data-tab="tab-materi" onclick="UI.gantiTabGuru('tab-materi')"><i class="fa-solid fa-bullseye nav-ico"></i><span>Analisis Materi</span></button>
       <button class="nav-tab" data-tab="tab-analisis" onclick="UI.gantiTabGuru('tab-analisis')"><i class="fa-solid fa-chart-pie nav-ico"></i><span>Analisis Soal</span></button>
-    <button class="nav-tab" data-tab="tab-analisis-materi" onclick="UI.gantiTabGuru('tab-analisis-materi')"><i class="fa-solid fa-magnifying-glass-chart nav-ico"></i><span>Analisis Materi</span></button>
-    <button class="nav-tab" data-tab="tab-perkembangan" onclick="UI.gantiTabGuru('tab-perkembangan')"><i class="fa-solid fa-arrow-trend-up nav-ico"></i><span>Perkembangan Siswa</span></button>
       <button class="nav-tab" data-tab="tab-pelanggaran" onclick="UI.gantiTabGuru('tab-pelanggaran')"><i class="fa-solid fa-triangle-exclamation nav-ico"></i><span>Log Pelanggaran</span></button>
-      <button class="nav-tab" data-tab="tab-pemantauan" onclick="UI.gantiTabGuru('tab-pemantauan')"><i class="fa-solid fa-eye nav-ico"></i><span>Pemantauan Ujian</span></button>
+      <button class="nav-tab" data-tab="tab-pemantauan" onclick="UI.gantiTabGuru('tab-pemantauan')"><i class="fa-solid fa-eye nav-ico"></i><span>Pemantauan Peserta</span></button>
       <button class="nav-tab" data-tab="tab-siswa" onclick="UI.gantiTabGuru('tab-siswa')"><i class="fa-solid fa-users nav-ico"></i><span>Data Siswa</span></button>
       <button class="nav-tab" data-tab="tab-login" onclick="UI.gantiTabGuru('tab-login')"><i class="fa-solid fa-lock nav-ico"></i><span>Status Login</span></button>
       <button class="nav-tab" data-tab="tab-pengaturan" onclick="UI.gantiTabGuru('tab-pengaturan')"><i class="fa-solid fa-gear nav-ico"></i><span>Pengaturan</span></button>
@@ -174,10 +182,10 @@
   </aside>
 
   <main class="main">
-    <div class="anbk-guru-band" aria-hidden="true">
-      <img class="agb-logo" src="icons/tutwuri.png" alt=""><img class="agb-logo" src="icons/smpn2.png" alt="">
-      <span class="agb-teks"><b>PUSMENDIK</b><small>APLIKASI ANBK &middot; <span class="app-brand-nama">ANBK SMP Negeri 2 Seririt</span></small></span>
-      <span class="agb-user"><span id="guru-band-nama">Portal Guru</span><i class="agb-ico fa-solid fa-user"></i></span>
+    <div class="skd-guru-band">
+      <img class="agb-logo" src="icons/bkn.png" alt="CAT BKN">
+      <span class="agb-teks"><b class="app-brand-nama">Simulasi CAT SKD CPNS</b><small>Portal Guru &middot; Pusat Pengembangan Sistem Seleksi</small></span>
+      <span class="agb-user"><i class="agb-ico fa-solid fa-user"></i><span id="guru-band-nama">Portal Guru</span></span>
     </div>
     <!-- ---------- TAB: DASHBOARD ---------- -->
     <section id="tab-dashboard">
@@ -196,7 +204,6 @@
             <button onclick="UI.bukaModalUjian()"><i class="fa-solid fa-plus"></i> Buat Ujian Baru</button>
             <button class="secondary" onclick="UI.gantiTabGuru('tab-bank-soal')"><i class="fa-solid fa-layer-group"></i> Kelola Bank Soal</button>
             <button class="secondary" onclick="UI.gantiTabGuru('tab-rekap')"><i class="fa-solid fa-clipboard-check"></i> Rekap Nilai</button>
-            <button class="secondary" onclick="UI.gantiTabGuru('tab-leaderboard')"><i class="fa-solid fa-trophy"></i> Leaderboard</button>
           </div>
         </div>
         <i class="fa-solid fa-graduation-cap dash-hero-deco"></i>
@@ -222,6 +229,11 @@
         <button type="button" class="secondary small" onclick="UI.gantiTabGuru('tab-ujian')">Lihat semua</button>
       </div>
       <div class="panel" id="dashboard-ujian-terbaru">Memuat...</div>
+      <div class="panel" id="panel-tren-skd">
+        <h3 style="margin:0 0 .2rem"><i class="fa-solid fa-chart-line"></i> Perkembangan Rata-rata Skor SKD</h3>
+        <p class="subtitle" style="margin:0 0 .5rem">Rata-rata TWK, TIU, TKP, dan Total tiap simulasi (urut waktu) — naik atau turun dibanding simulasi sebelumnya.</p>
+        <div id="dash-tren"><p class="subtitle">Memuat...</p></div>
+      </div>
     </section>
 
     <!-- ---------- TAB: BANK SOAL ---------- -->
@@ -284,7 +296,6 @@
           </div>
           <div class="toolbar-actions">
             <button class="secondary" onclick="Guru.pratinjauKategoriAktif()">👁 Pratinjau Semua Soal</button>
-            <button class="secondary" title="Ubah nama Mapel ini (mis. Literasi menjadi Literasi 1)" onclick="Guru.ubahNamaKategori(state.guru.kategoriKelola)">✏️ Ubah Nama</button>
             <button class="secondary" onclick="Guru.bukaModalKelolaKategori()">Edit Info</button>
           </div>
         </div>
@@ -301,7 +312,7 @@
             <div class="aksi-card" onclick="document.getElementById('input-import-soal').click()">
               <div class="aksi-card-ico">📄</div>
               <div class="aksi-card-judul">Import dari Excel (.xlsx)</div>
-              <div class="aksi-card-desc">Isi tabel: 1 baris = 1 soal, tinggal isi Opsi A/B/C/D &amp; kolom Kunci pakai huruf.</div>
+              <div class="aksi-card-desc">Isi tabel: 1 baris = 1 soal. Tipe PG (TWK/TIU), TKP (kolom Kunci = skor 1–5 tiap opsi), atau Kecukupan (pilihan baku otomatis). Rumus matematika: tulis LaTeX di antara tanda $ ... $ (lihat sheet "Petunjuk" di template). Soal figural: <b>tempel gambar langsung</b> ke sel Opsi A–E / kolom Gambar di Excel (otomatis terbaca), atau tulis <code>gambar:nama-file.png</code> lalu pilih file gambarnya di bawah; punya satu gambar gabungan? Pecah dengan <a href="alat-potong-gambar.html" target="_blank" rel="noopener">alat pemotong gambar</a>.</div>
               <div class="aksi-card-aksi-row">
                 <button type="button" class="secondary small" onclick="event.stopPropagation();Guru.unduhTemplateSoal()">⬇ Unduh Template</button>
                 <label class="secondary small aksi-card-pilih-gambar" onclick="event.stopPropagation()">
@@ -314,7 +325,7 @@
             <div class="aksi-card" onclick="document.getElementById('input-import-soal-docx').click()">
               <div class="aksi-card-ico">📄</div>
               <div class="aksi-card-judul">Import dari Word (.docx)</div>
-              <div class="aksi-card-desc">Format tabel sama seperti template Excel — gambar yang ditempel langsung di kolom "Gambar"/Pertanyaan/Opsi otomatis terdeteksi &amp; terunggah, tanpa perlu pilih file terpisah.</div>
+              <div class="aksi-card-desc">Format tabel sama seperti template Excel; rumus dari <i>Insert › Equation</i> Word otomatis dikonversi dan tampil rapi; tabel di dalam sel Pertanyaan (soal TIU bertabel) tetap terbaca — gambar yang ditempel langsung di kolom "Gambar"/Pertanyaan/Opsi otomatis terdeteksi &amp; terunggah, tanpa perlu pilih file terpisah.</div>
               <div class="aksi-card-aksi-row">
                 <button type="button" class="secondary small" onclick="event.stopPropagation();Guru.unduhTemplateSoalDocx()">⬇ Unduh Template</button>
                 <label class="secondary small aksi-card-pilih-gambar" onclick="event.stopPropagation()">
@@ -324,17 +335,13 @@
               </div>
               <input type="file" id="input-import-soal-docx" accept=".docx" class="hidden" onchange="Guru.importSoalDariDocx(event)">
             </div>
-            <!-- Paket survei (Survei Karakter / Sulingjar) menyatu dengan soal kategori ini -->
-            <div id="paket-survei-cards" style="display:contents"></div>
           </div>
           <p class="subtitle" style="margin-top:.8rem">
-            <strong>Paket survei:</strong> Survei Karakter (untuk paket <em>Numerasi</em>) dan Survei Lingkungan Belajar / Sulingjar
-            (untuk paket <em>Literasi</em>) disimpan di Bank Soal bersama soal kategori ini, jadi tidak perlu diunggah ulang
-            setiap membuat ujian. Pakai <strong>Unduh Template</strong> → isi → <strong>Upload</strong>, atau langsung
-            <strong>Edit Butir</strong> di sini. Ujian dengan pilihan survei <em>Otomatis</em> memakainya sendiri.
-          </p>
+            <strong>Kategori SKD:</strong> beri nama kategori <b>TWK</b>, <b>TIU</b>, dan <b>TKP</b> (nama boleh memuat kata itu). Soal TWK/TIU: benar = 5 poin.
+            Soal TKP: tipe <b>TKP</b> dengan skor 1–5 pada tiap opsi. Soal TIU <i>Kecukupan Data</i> cukup isi tipe <b>Kecukupan</b> (lima pilihan baku terisi otomatis).
+            Kolom <b>Topik</b> dipakai untuk analisis materi yang kurang per peserta.</p>
           <p class="subtitle" style="margin-top:.8rem">
-            <strong>Kategori:</strong> semua soal yang diimpor dari halaman ini otomatis masuk ke mapel yang sedang dibuka — isi kolom "Kategori" di file tidak perlu diisi (diabaikan).
+            <strong>Subtes:</strong> semua soal yang diimpor dari halaman ini masuk ke mapel yang sedang dibuka (mis. <i>Simulasi 1</i>) — tidak dipecah. Isi kolom "Subtes" (atau "Kategori") di file dengan <b>TWK</b>, <b>TIU</b>, atau <b>TKP</b> agar tiap soal dikenali subtesnya; 110 soal campuran cukup diimpor sekaligus, atau impor TIU/TWK/TKP saja.
           </p>
           <p class="subtitle" style="margin-top:.4rem">
             <strong>Soal bergambar (Excel):</strong> di kolom "Gambar" pada tabel, cukup ketik nama file gambarnya saja
@@ -354,9 +361,13 @@
           <div class="toolbar" style="margin-top:1.2rem">
             <div class="row" style="flex:1;margin:0;gap:.6rem;flex-wrap:wrap">
               <select id="filter-kategori-soal" class="hidden" onchange="Guru.renderDaftarSoal()"><option value="">Semua kategori</option></select>
+              <select id="filter-subtes-soal" onchange="Guru.renderDaftarSoal()" style="max-width:150px" title="Tampilkan hanya soal dari satu subtes SKD">
+                <option value="">Semua subtes</option><option value="TWK">TWK</option><option value="TIU">TIU</option><option value="TKP">TKP</option>
+              </select>
               <select id="filter-subkategori-soal" onchange="Guru.renderDaftarSoal()" style="max-width:220px">
                 <option value="">Semua sub-kategori</option>
               </select>
+              <button type="button" class="secondary small" id="btn-ubah-paket" onclick="Guru.ubahNamaPaket()" title="Ubah nama paket (sub-kategori) yang dipilih"><i class="fa-solid fa-pen"></i> Ubah Nama Paket</button>
               <select id="filter-status-soal" onchange="Guru.renderDaftarSoal()" style="max-width:160px">
                 <option value="aktif" selected>Bank Soal (Aktif)</option>
                 <option value="arsip">Arsip</option>
@@ -388,13 +399,36 @@
       <h2>Kelola Ujian</h2>
       <p class="subtitle">Atur durasi, jadwal token, toleransi keterlambatan, dan batas pelanggaran anti-cheat.</p>
       <div class="panel">
-        <div class="toolbar">
-          <div></div>
-          <button type="button" class="secondary btn-segarkan" title="Ambil data terbaru tanpa mengubah pilihan ujian &amp; kelas" onclick="Guru.segarkan('tab-ujian', this)"><i class="fa-solid fa-rotate"></i> Segarkan</button><span class="segar-info" id="segar-info-tab-ujian" aria-live="polite"></span>
-          <button class="accent" onclick="UI.bukaModalUjian()">+ Buat Ujian</button>
+        <div class="toolbar ujian-toolbar">
+          <div class="toolbar-judul"><h3>Daftar Ujian</h3><span class="toolbar-sub" id="ujian-ringkas">Memuat...</span></div>
+          <div class="toolbar-actions">
+            <span class="segar-info" id="segar-info-tab-ujian" aria-live="polite"></span>
+            <button type="button" class="secondary btn-segarkan" title="Ambil data terbaru tanpa mengubah pilihan ujian &amp; kelas" onclick="Guru.segarkan('tab-ujian', this)"><i class="fa-solid fa-rotate"></i> Segarkan</button>
+            <button class="accent" onclick="UI.bukaModalUjian()"><i class="fa-solid fa-plus"></i> Buat Ujian</button>
+          </div>
         </div>
 
         <div id="daftar-ujian">Memuat...</div>
+      </div>
+    </section>
+
+    <!-- ---------- TAB: LEADERBOARD ---------- -->
+    <section id="tab-leaderboard" class="hidden">
+      <h2>Leaderboard</h2>
+      <p class="subtitle">Peringkat peserta berdasarkan skor total SKD (nilai terbaik tiap peserta; bila seri, yang lebih cepat selesai berada di atas).</p>
+      <div class="panel">
+        <div class="toolbar lb-toolbar">
+          <div class="lb-filter">
+            <select id="lb-ujian" onchange="Guru.muatLeaderboard()"><option value="">Pilih ujian...</option></select>
+            <select id="lb-kelas" onchange="Guru.muatLeaderboard()"><option value="">Semua kelas</option></select>
+            <select id="lb-limit" onchange="Guru.muatLeaderboard()"><option value="10">10 teratas</option><option value="25">25 teratas</option><option value="50">50 teratas</option><option value="0">Semua peserta</option></select>
+          </div>
+          <div class="toolbar-actions">
+            <label class="lb-switch" title="Bila dimatikan, siswa tidak melihat papan peringkat di dashboard mereka"><input type="checkbox" id="lb-tampil-siswa" checked onchange="Guru.simpanLeaderboardSiswa(this.checked)"> Tampilkan ke siswa</label>
+            <button type="button" class="secondary" onclick="Guru.muatLeaderboard()"><i class="fa-solid fa-rotate"></i> Segarkan</button>
+          </div>
+        </div>
+        <div id="lb-isi"><div class="lb-kosong"><i class="fa-solid fa-trophy"></i><p>Pilih ujian untuk melihat peringkat peserta.</p></div></div>
       </div>
     </section>
 
@@ -411,6 +445,7 @@
           <button class="secondary" onclick="Guru.unduhEvaluasiSalah()" title="Unduh Excel evaluasi: ringkasan benar/salah per siswa + daftar soal yang salah beserta jawaban siswa & kunci (mengikuti filter yang tampil)">⬇ Evaluasi Jawaban Salah</button>
           <button class="secondary" onclick="Guru.cetakDetailKelas()" title="Cetak / simpan PDF detail jawaban seluruh siswa yang tampil (pilih Filter Kelas dulu untuk satu kelas): halaman 1 daftar nama, lalu tiap siswa satu bagian berisi soal yang salah">🖨 Cetak Detail Kelas (PDF)</button>
           <button class="secondary" onclick="Guru.unduhRekapCSV('semuaUjian')" title="Unduh nilai dari SEMUA ujian sekaligus (mengikuti Filter Kelas): 1 sheet gabungan + 1 sheet per kelas">⬇ Semua Ujian</button>
+          <button class="accent" title="Buat sertifikat hasil simulasi SKD untuk peserta yang dicentang (kosong = semua yang tampil)" onclick="Skd.sertifikatTerpilih()">🎓 Sertifikat</button>
           <button class="danger" title="Hapus nilai siswa yang dicentang pada tabel di bawah" onclick="Guru.hapusNilaiTerpilih()">🗑 Hapus Terpilih</button>
           <button class="danger" title="Hapus SEMUA nilai pada ujian yang sedang dipilih. Kalau Filter Kelas/pencarian aktif, hanya yang sedang tampil yang dihapus." onclick="Guru.hapusSemuaNilaiUjian()">🗑 Hapus Semua Nilai</button>
           <button class="secondary" title="Hitung ulang nilai semua siswa di ujian ini memakai jawaban yang sudah tersimpan, tanpa mengulang ujian -- berguna kalau ada perbaikan pada logika penilaian (mis. soal dengan opsi teracak)." onclick="Guru.hitungUlangNilai()">🔄 Hitung Ulang Nilai</button>
@@ -424,91 +459,18 @@
       </div>
     </section>
 
-    <!-- ---------- TAB: LEADERBOARD (peringkat Literasi + Numerasi) ---------- -->
-    <section id="tab-leaderboard" class="hidden lb-root">
-      <h2>Leaderboard</h2>
-      <p class="subtitle">Peringkat siswa berdasarkan nilai <strong>Literasi</strong> dan <strong>Numerasi</strong>. Pilih <strong>Tes 1, Tes 2, ...</strong> atau <strong>Rata-rata Seluruh Tes</strong>, lalu pilih satu kelas atau seluruh kelas. Nilai Akhir = rata-rata Literasi dan Numerasi.</p>
+    <!-- ---------- TAB: ANALISIS MATERI PER PESERTA ---------- -->
+    <section id="tab-materi" class="hidden">
+      <h2>Analisis Materi per Peserta</h2>
+      <p class="subtitle">Lihat materi (topik) mana yang masih lemah untuk setiap peserta, dihitung dari seluruh simulasi yang sudah diselesaikan. Cocok untuk menentukan materi yang harus dipelajari ulang.</p>
       <div class="panel">
         <div class="toolbar">
-          <div class="toolbar-actions" style="align-items:center">
-            <button type="button" class="secondary btn-segarkan" id="lb-btn-segarkan" title="Ambil nilai terbaru dari semua tes" onclick="Leaderboard.muat(this)"><i class="fa-solid fa-rotate"></i> Segarkan</button><span class="segar-info" id="segar-info-tab-leaderboard" aria-live="polite"></span>
-          </div>
-          <div class="toolbar-actions">
-            <button type="button" class="secondary" title="Kelompokkan ujian ke Tes 1, Tes 2, ... secara manual (bila nama ujian tidak memuat Literasi/Numerasi)" onclick="Leaderboard.bukaAtur()"><i class="fa-solid fa-sliders"></i> Atur Tes</button>
-            <button type="button" class="secondary" title="Unduh Excel: 1 sheet sesuai pilihan + 1 sheet per kelas" onclick="Leaderboard.unduh()">⬇ Unduh Excel</button>
-            <button type="button" class="secondary" title="Cetak / simpan PDF sesuai pilihan yang tampil" onclick="Leaderboard.cetak()">🖨 Cetak PDF</button>
-          </div>
+          <select id="materi-kelas" onchange="Skd.isiPilihanSiswaMateri()" title="Filter kelas"><option value="">Semua Kelas</option></select>
+          <select id="materi-siswa" onchange="Skd.muatAnalisisMateriGuru()" style="min-width:240px"><option value="">Pilih peserta...</option></select>
+          <select id="materi-ujian" onchange="Skd.muatAnalisisMateriGuru()" title="Batasi pada satu simulasi"><option value="">Semua simulasi</option></select>
+          <button type="button" class="secondary" onclick="Skd.ringkasanKelasMateri()"><i class="fa-solid fa-users-viewfinder"></i> Ringkasan Kelas</button>
         </div>
-        <div class="lb-filter-label">Peringkat berdasarkan</div>
-        <div class="lb-chips" id="lb-chips-tes"></div>
-        <div class="lb-filter-label">Kelas</div>
-        <div class="lb-chips" id="lb-chips-kelas"></div>
-        <div class="filter-bar" style="margin-bottom:0">
-          <input type="search" id="lb-cari" placeholder="🔍 Cari nama siswa..." oninput="Leaderboard.render()" autocomplete="off">
-          <label class="filter-cek" title="Hanya tampilkan siswa yang sudah mengerjakan Literasi DAN Numerasi"><input type="checkbox" id="lb-lengkap" onchange="Leaderboard.render()"> Sembunyikan yang belum lengkap</label>
-          <label class="filter-cek" title="Siswa yang diblokir karena pelanggaran biasanya tidak diikutkan"><input type="checkbox" id="lb-blokir" onchange="Leaderboard.render()"> Sertakan siswa yang diblokir</label>
-          <span class="filter-info" id="lb-info-filter"></span>
-        </div>
-      </div>
-      <div id="lb-hero"></div>
-      <div id="lb-stats"></div>
-      <div id="lb-podium"></div>
-      <div class="panel">
-        <div id="lb-tabel">Memuat Leaderboard... Jika tidak muncul, pastikan berkas <code>leaderboard.js</code> ikut diunggah ke repositori.</div>
-      </div>
-    </section>
-
-    <!-- ---------- TAB: LEADERBOARD SURVEI (Survei Karakter + Sulingjar) ---------- -->
-    <section id="tab-lb-survei" class="hidden lb-root">
-      <h2>Leaderboard Survei</h2>
-      <p class="subtitle">Peringkat siswa berdasarkan <strong>Nilai Survei Karakter</strong> dan <strong>Sulingjar</strong>. Pilih <strong>Tes 1, Tes 2, ...</strong> atau <strong>Rata-rata Seluruh Tes</strong>, lalu satu kelas atau seluruh kelas. Nilai Akhir = rata-rata keduanya.</p>
-      <div class="ls-catatan"><i class="fa-solid fa-circle-info"></i><div>Peringkat ini <strong>terpisah dari Leaderboard tes</strong>: nilai survei (0–100, dari jawaban survei, bukan benar/salah) tidak mempengaruhi nilai tes, dan sebaliknya. Gunakan untuk guru saja; jangan ditampilkan ke siswa agar tidak mendorong jawaban &ldquo;yang bagus&rdquo;. Pengisian bertanda <strong>⚠ dicek</strong> (terlalu cepat/seragam/bertentangan) bisa disembunyikan.</div></div>
-      <div class="panel">
-        <div class="toolbar">
-          <div class="toolbar-actions" style="align-items:center">
-            <button type="button" class="secondary btn-segarkan" id="ls-btn-segarkan" title="Ambil hasil survei terbaru" onclick="LeaderboardSurvei.muat(this)"><i class="fa-solid fa-rotate"></i> Segarkan</button><span class="segar-info" id="segar-info-tab-lb-survei" aria-live="polite"></span>
-          </div>
-          <div class="toolbar-actions">
-            <button type="button" class="secondary" title="Atur pengelompokan Tes 1, Tes 2, ... (dibagi dengan Leaderboard tes)" onclick="LeaderboardSurvei.atur()"><i class="fa-solid fa-sliders"></i> Atur Tes</button>
-            <button type="button" class="secondary" title="Unduh Excel: sheet sesuai pilihan + satu sheet per kelas" onclick="LeaderboardSurvei.unduh()">⬇ Unduh Excel</button>
-            <button type="button" class="secondary" title="Cetak / simpan PDF sesuai pilihan yang tampil" onclick="LeaderboardSurvei.cetak()">🖨 Cetak PDF</button>
-          </div>
-        </div>
-        <div class="lb-filter-label">Peringkat berdasarkan</div>
-        <div class="lb-chips" id="ls-chips-tes"></div>
-        <div class="lb-filter-label">Kelas</div>
-        <div class="lb-chips" id="ls-chips-kelas"></div>
-        <div class="filter-bar" style="margin-bottom:0">
-          <input type="search" id="ls-cari" placeholder="🔍 Cari nama siswa..." oninput="LeaderboardSurvei.render()" autocomplete="off">
-          <label class="filter-cek" title="Hanya tampilkan siswa yang sudah mengisi Survei Karakter DAN Sulingjar"><input type="checkbox" id="ls-lengkap" onchange="LeaderboardSurvei.render()"> Sembunyikan yang belum lengkap</label>
-          <label class="filter-cek" title="Sembunyikan pengisian yang ditandai perlu dicek (terlalu cepat, jawaban seragam, atau bertentangan)"><input type="checkbox" id="ls-cek" onchange="LeaderboardSurvei.render()"> Sembunyikan pengisian yang perlu dicek</label>
-          <span class="filter-info" id="ls-info-filter"></span>
-        </div>
-      </div>
-      <div id="ls-hero"></div>
-      <div id="ls-stats"></div>
-      <div id="ls-podium"></div>
-      <div class="panel">
-        <div id="ls-tabel">Memuat Leaderboard Survei... Jika tidak muncul, pastikan berkas <code>leaderboard-survei.js</code> ikut diunggah ke repositori.</div>
-      </div>
-    </section>
-
-    <!-- ---------- TAB: HASIL SURVEI (Survei Karakter & Sulingjar) ---------- -->
-    <section id="tab-survei" class="hidden">
-      <h2>Hasil Survei Karakter &amp; Sulingjar</h2>
-      <p class="subtitle">Nilai survei <strong>0–100</strong> per siswa, per dimensi, dan rata-rata kelas. Jawaban terbaik = skor 4 (Sangat setuju/Selalu; untuk pernyataan negatif, Tidak pernah). Atur survei di <strong>Kelola Ujian &gt; Survei Setelah Ujian</strong>.</p>
-      <div class="panel">
-        <div class="toolbar">
-          <select id="pilih-ujian-survei" onchange="Survei.guruMuat()" style="max-width:360px"></select>
-          <button type="button" class="secondary btn-segarkan" onclick="Survei.guruMuat()"><i class="fa-solid fa-rotate"></i> Segarkan</button>
-          <button class="secondary" onclick="Survei.guruUnduh()" title="Unduh Excel: indeks per dimensi, kualitas pengisian, dan jawaban per butir (sesuai filter)">⬇ Unduh (sesuai filter)</button>
-        </div>
-        <div class="filter-bar">
-          <input type="search" id="cari-survei" placeholder="🔍 Cari nama siswa..." oninput="Survei.guruRender()" autocomplete="off">
-          <select id="kelas-survei" onchange="Survei.guruRender()" title="Filter per kelas"><option value="">Semua Kelas</option></select>
-        </div>
-        <div id="ringkas-survei"></div>
-        <div id="tabel-survei">Pilih ujian terlebih dahulu.</div>
+        <div id="materi-isi"><p class="subtitle">Pilih peserta untuk melihat analisis materinya.</p></div>
       </div>
     </section>
 
@@ -550,69 +512,6 @@
     </section>
 
     <!-- ---------- TAB: LOG PELANGGARAN ---------- -->
-    <!-- ---------- TAB: ANALISIS MATERI (materi yang kurang per siswa / per materi) ---------- -->
-    <section id="tab-analisis-materi" class="hidden am-scope">
-      <h2>Analisis Materi</h2>
-      <p class="subtitle">Materi (<strong>Topik</strong> pada soal) mana yang masih kurang pada tiap siswa, untuk <strong>Literasi</strong> dan <strong>Numerasi</strong>. Siswa melihat analisis dan saran belajar yang sama di Portal Siswa. Isi kolom <em>Topik</em> pada soal di Bank Soal agar analisisnya rinci. Kurang = di bawah 60%.</p>
-      <div class="panel">
-        <div class="toolbar">
-          <div class="toolbar-actions" style="align-items:center">
-            <button type="button" class="secondary btn-segarkan" id="am-g-segarkan" title="Ambil hasil tes terbaru" onclick="AnalisisMateri.muat(this)"><i class="fa-solid fa-rotate"></i> Segarkan</button><span class="segar-info" id="segar-info-tab-analisis-materi" aria-live="polite"></span>
-          </div>
-          <div class="toolbar-actions">
-            <button type="button" class="secondary" title="Unduh Excel: per siswa, per materi, dan detail" onclick="AnalisisMateri.unduh()">⬇ Unduh Excel</button>
-            <button type="button" class="secondary" title="Cetak / simpan PDF sesuai pilihan yang tampil" onclick="AnalisisMateri.cetak()">🖨 Cetak PDF</button>
-          </div>
-        </div>
-        <div class="am-label">Tampilan</div>
-        <div class="am-chips" id="am-g-chips-tampil"></div>
-        <div class="am-label">Jenis</div>
-        <div class="am-chips" id="am-g-chips-jenis"></div>
-        <div class="am-label">Kelas</div>
-        <div class="am-chips" id="am-g-chips-kelas"></div>
-        <div class="filter-bar" style="margin-bottom:0">
-          <input type="search" id="am-g-cari" placeholder="🔍 Cari nama siswa / materi..." oninput="AnalisisMateri.render()" autocomplete="off">
-          <label class="filter-cek" title="Sembunyikan siswa yang tidak punya materi kurang (tampilan Per Siswa)"><input type="checkbox" id="am-g-hanya" onchange="AnalisisMateri.render()"> Hanya yang punya materi kurang</label>
-          <span class="filter-info" id="am-g-info"></span>
-        </div>
-      </div>
-      <div id="am-g-stats"></div>
-      <div class="panel">
-        <div id="am-g-tabel">Memuat Analisis Materi... Jika tidak muncul, pastikan berkas <code>analisis-materi.js</code> ikut diunggah ke repositori.</div>
-      </div>
-    </section>
-
-    <!-- ---------- TAB: PERKEMBANGAN SISWA (grafik naik / turun per tes) ---------- -->
-    <section id="tab-perkembangan" class="hidden am-scope">
-      <h2>Perkembangan Siswa</h2>
-      <p class="subtitle">Grafik perkembangan nilai <strong>Tes 1, Tes 2, Tes 3, ...</strong> (rata-rata Literasi dan Numerasi): lihat siapa yang <strong>naik</strong>, <strong>stabil</strong>, atau <strong>turun</strong>. Klik <em>Grafik</em> pada seorang siswa untuk melihat perkembangannya dibanding rata-rata kelas. Siswa melihat grafik yang sama di akunnya.</p>
-      <div class="panel">
-        <div class="toolbar">
-          <div class="toolbar-actions" style="align-items:center">
-            <button type="button" class="secondary btn-segarkan" id="pg-g-segarkan" title="Ambil hasil tes terbaru" onclick="Perkembangan.muat(this)"><i class="fa-solid fa-rotate"></i> Segarkan</button><span class="segar-info" id="segar-info-tab-perkembangan" aria-live="polite"></span>
-          </div>
-          <div class="toolbar-actions">
-            <button type="button" class="secondary" onclick="Perkembangan.unduh()">⬇ Unduh Excel</button>
-            <button type="button" class="secondary" onclick="Perkembangan.cetak()">🖨 Cetak PDF</button>
-          </div>
-        </div>
-        <div class="am-label">Kelas</div>
-        <div class="am-chips" id="pg-g-chips-kelas"></div>
-        <div class="filter-bar" style="margin-bottom:0">
-          <input type="search" id="pg-g-cari" placeholder="🔍 Cari nama siswa..." oninput="Perkembangan.render()" autocomplete="off">
-          <select id="pg-g-urut" onchange="Perkembangan.pilihUrut(this.value)" title="Urutan siswa"><option value="turun">Urut: penurunan terbesar</option><option value="naik">Urut: kenaikan terbesar</option><option value="nilai">Urut: nilai terakhir</option><option value="nama">Urut: nama</option></select>
-          <label class="filter-cek"><input type="checkbox" id="pg-g-turun" onchange="Perkembangan.render()"> Hanya yang menurun</label>
-          <span class="filter-info" id="pg-g-info"></span>
-        </div>
-      </div>
-      <div id="pg-g-stats"></div>
-      <div class="panel">
-        <div class="pg-card-h"><h3 id="pg-g-judul">Rata-rata per Tes</h3><small>Nilai rata-rata siswa pada tiap tes</small></div>
-        <div id="pg-g-grafik"></div><div id="pg-g-wawasan"></div>
-      </div>
-      <div class="panel"><div id="pg-g-tabel">Memuat Perkembangan Siswa... Jika tidak muncul, pastikan berkas <code>perkembangan.js</code> ikut diunggah ke repositori.</div></div>
-    </section>
-
     <section id="tab-pelanggaran" class="hidden">
       <h2>Log Pelanggaran Anti-Cheat</h2>
       <p class="subtitle">Riwayat pelanggaran (pindah tab, keluar fullscreen, dll.) per ujian.</p>
@@ -679,19 +578,18 @@
             <label>Username</label>
             <div style="display:flex;gap:.4rem">
               <input type="text" id="siswa-manual-username" placeholder="kosongkan untuk dibuatkan otomatis (TP + 13 angka)">
-              <button type="button" class="secondary icon" title="Buatkan username otomatis format TKA (TP + 13 angka)" onclick="Guru.generateUsernameManual()">🪄</button>
+              <button type="button" class="secondary icon" title="Buatkan username otomatis nomor peserta 14 angka" onclick="Guru.generateUsernameManual()">🪄</button>
             </div>
           </div>
           <div class="field">
             <label>Password</label>
             <div style="display:flex;gap:.4rem">
               <input type="text" id="siswa-manual-password" placeholder="kosongkan untuk dibuatkan otomatis">
-              <button type="button" class="secondary icon" title="Buatkan password otomatis format TKA (6 angka + *)" onclick="Guru.generatePasswordManual()">🎲</button>
+              <button type="button" class="secondary icon" title="Buatkan password otomatis 6 angka + *" onclick="Guru.generatePasswordManual()">🎲</button>
             </div>
           </div>
         </div>
         <div class="row">
-          <div class="field"><label>NISN</label><input type="text" id="siswa-manual-nisn" inputmode="numeric" placeholder="10 digit"></div>
           <div class="field"><label>Jenis Kelamin</label><select id="siswa-manual-jk"><option value="">-</option><option value="L">Laki-Laki</option><option value="P">Perempuan</option></select></div>
           <div class="field"><label>Tempat Lahir</label><input type="text" id="siswa-manual-tempat"></div>
           <div class="field"><label>Tanggal Lahir</label><input type="date" id="siswa-manual-tgl"></div>
@@ -710,7 +608,7 @@
           </div>
         </div>
         <p class="subtitle" style="margin-top:-.6rem">
-          Kolom dibaca dari <strong>judul kolom</strong> (urutan bebas), sesuai Kartu Login: <strong>Nama Peserta, NISN, Tempat Lahir, Tanggal Lahir</strong>
+          Kolom dibaca dari <strong>judul kolom</strong> (urutan bebas), sesuai Kartu Login: <strong>Nama Peserta, Tempat Lahir, Tanggal Lahir</strong>
           (atau satu kolom <em>Tempat, Tanggal Lahir</em>), <strong>Username, Password</strong>, plus <strong>Kelas</strong> dan <strong>Jenis Kelamin</strong> (L/P) bila ada.
           Username/password yang sudah ada di file dipakai apa adanya (tidak diubah); bila kosong dibuatkan otomatis. Siswa dengan username yang sama
           diperbarui datanya, bukan digandakan. File lama berformat nama, kelas, username, password tetap bisa diimpor.
@@ -730,8 +628,7 @@
               Filter Kelas:
               <select id="filter-kelas-siswa" onchange="Guru.renderTabelSiswa()" style="width:auto;flex:1"><option value="">Semua Kelas</option></select>
             </label>
-            <button class="accent small" onclick="Anbk.bukaKartuLogin()" title="Cetak Kartu Login peserta (logo, QR, NISN, TTL, username, password) sesuai Filter Kelas">🪪 Cetak Kartu Login</button>
-            <label class="filter-cek" style="margin:0" title="Jika aktif, token ujian yang sedang dibuka tampil di layar peserta (seperti simulasi TKA). Matikan untuk ujian sungguhan."><input type="checkbox" id="opt-tampil-token" onchange="Anbk.simpanTampilToken(this.checked)"> Tampilkan token di layar peserta</label>
+            <button class="accent small" onclick="Skd.bukaKartuLogin()" title="Cetak Kartu Peserta (logo, barcode, QR, data diri, nomor peserta, PIN) sesuai Filter Kelas">🪪 Cetak Kartu Peserta</button>
             <button class="secondary small" onclick="Guru.unduhAkunSiswa()" title="Unduh username & password siswa (.xlsx), satu sheet per kelas. Ikuti Filter Kelas: pilih satu kelas untuk mengunduh kelas itu saja.">⬇ Unduh Akun (.xlsx)</button>
             <button class="secondary small" onclick="Guru.resetDeviceKelas('filter-kelas-siswa')" title="Lepas kunci perangkat semua siswa di kelas yang sedang dipilih pada Filter Kelas">🔓 Lepas Semua Perangkat</button>
             <button class="danger small" onclick="Guru.hapusKelas()" title="Hapus semua siswa di kelas yang sedang dipilih pada Filter Kelas">🗑 Hapus Kelas Ini</button>
@@ -824,7 +721,7 @@
           termasuk HP siswa — saat mereka membuka atau memuat ulang aplikasi, tanpa perlu update apa pun di
           perangkat masing-masing.</p>
         <div class="field"><label>Nama Aplikasi</label>
-          <input type="text" id="branding-nama" placeholder="mis. ANBK SMP Negeri 2 Seririt">
+          <input type="text" id="branding-nama" placeholder="mis. Simulasi CAT SKD CPNS">
         </div>
         <div class="field">
           <label>Logo Aplikasi <span class="subtitle" style="display:inline">— opsional, kosongkan untuk pakai ikon bawaan</span></label>
@@ -986,6 +883,15 @@
       <option value="uraian">Essay</option>
     </select>
 
+    <div class="field">
+      <label>Subtes SKD <span class="subtitle" style="display:inline">— TWK / TIU / TKP; kosongkan bila bukan soal SKD</span></label>
+      <select id="soal-subtes">
+        <option value="">— Bukan soal SKD / ikut nama kategori —</option>
+        <option value="TWK">TWK — Tes Wawasan Kebangsaan</option>
+        <option value="TIU">TIU — Tes Intelegensia Umum</option>
+        <option value="TKP">TKP — Tes Karakteristik Pribadi</option>
+      </select>
+    </div>
     <div class="row">
       <div class="field">
         <label>Kategori / Nama Mapel</label>
@@ -1107,32 +1013,6 @@
   </div>
 </div>
 
-<!-- ======================= MODAL: EDITOR BUTIR SURVEI (Kelola Soal) ======================= -->
-<div id="modal-survei-edit" class="modal-backdrop hidden">
-  <div class="modal">
-    <h3 id="sv-ed-judul">Edit Butir Survei</h3>
-    <p class="subtitle" id="sv-ed-info" style="margin:0"></p>
-    <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem;align-items:center">
-      <button type="button" class="accent small" onclick="Survei.edTambah()">+ Tambah Butir</button>
-      <button type="button" class="secondary small" onclick="Survei.edAturHalaman()">Atur Halaman Otomatis</button>
-      <button type="button" class="secondary small" onclick="Survei.edBawaan()">Muat Butir Bawaan</button>
-      <span class="subtitle" id="sv-ed-n" style="margin:0 0 0 auto"></span>
-    </div>
-    <div id="sv-ed-scroll">
-      <table id="sv-ed-table">
-        <thead><tr><th>No</th><th>Hal.</th><th>Dimensi</th><th>Skala</th><th>Arah</th><th>Pernyataan</th><th>Kode</th><th>Pasangan (No)</th><th>Petunjuk halaman</th><th></th></tr></thead>
-        <tbody id="sv-ed-body"></tbody>
-      </table>
-      <datalist id="sv-ed-dim"></datalist>
-    </div>
-    <p class="subtitle" style="margin:0 0 .4rem">Halaman yang sama (angka sama, berurutan, skala sama) tampil bersama sebagai tabel matriks. Pasangan = No butir lain yang maknanya berlawanan (satu Positif, satu Negatif). Minimal 5, maksimal 99 butir.</p>
-    <div class="modal-close-row">
-      <button class="secondary" onclick="Survei.tutupEditor()">Batal</button>
-      <button class="accent" onclick="Survei.edSimpan()">Simpan Paket Survei</button>
-    </div>
-  </div>
-</div>
-
 <!-- ======================= MODAL: PRATINJAU SOAL (tampilan sama persis dengan siswa) ======================= -->
 <div id="modal-pratinjau-soal" class="modal-backdrop hidden">
   <div class="modal modal-wide">
@@ -1156,10 +1036,6 @@
       </div>
       <div class="dsw-nilai-box"><span class="dsw-nilai" id="dsw-nilai">0</span><span id="dsw-status" class="badge"></span><span id="dsw-kategori"></span></div>
     </div>
-    <div class="detail-tabs hidden" id="dsw-mode" style="margin-bottom:.6rem">
-      <button type="button" class="detail-tab active" id="dsw-mode-soal" onclick="Survei.modeDetail('guru','soal')">Pembahasan Soal</button>
-      <button type="button" class="detail-tab" id="dsw-mode-survei" onclick="Survei.modeDetail('guru','survei')">Pembahasan Survei</button>
-    </div>
     <div class="dsw-chips" id="dsw-chips"></div>
     <p class="dsw-evaluasi" id="dsw-evaluasi"></p>
     <div class="detail-tabs" id="dsw-tabs-soal">
@@ -1167,7 +1043,6 @@
       <button type="button" class="detail-tab" id="dsw-tab-semua" onclick="Guru.gantiFilterDetailSiswa('semua')">Semua Soal</button>
     </div>
     <div id="dsw-list"></div>
-    <div id="dsw-survei" class="hidden"></div>
     <div class="modal-close-row dsw-aksi">
       <button type="button" class="secondary" id="dsw-prev" onclick="Guru.pindahDetailSiswa(-1)"><i class="fa-solid fa-arrow-left"></i> Sebelumnya</button>
       <span class="dsw-posisi" id="dsw-posisi"></span>
@@ -1188,14 +1063,14 @@
         <label>Username</label>
         <div style="display:flex;gap:.4rem">
           <input type="text" id="siswa-edit-username">
-          <button type="button" class="secondary icon" title="Buatkan username otomatis format TKA (TP + 13 angka)" onclick="Guru.generateUsernameEdit()">🪄</button>
+          <button type="button" class="secondary icon" title="Buatkan username otomatis nomor peserta 14 angka" onclick="Guru.generateUsernameEdit()">🪄</button>
         </div>
       </div>
       <div class="field">
         <label>Password</label>
         <div style="display:flex;gap:.4rem">
           <input type="text" id="siswa-edit-password">
-          <button type="button" class="secondary icon" title="Buatkan password otomatis format TKA (6 angka + *)" onclick="Guru.generatePasswordEdit()">🎲</button>
+          <button type="button" class="secondary icon" title="Buatkan password otomatis 6 angka + *" onclick="Guru.generatePasswordEdit()">🎲</button>
         </div>
       </div>
     </div>
@@ -1204,7 +1079,6 @@
       <div class="field"><label>Kelas</label><input type="text" id="siswa-edit-kelas" list="daftar-kelas-siswa"></div>
     </div>
     <div class="row">
-      <div class="field"><label>NISN</label><input type="text" id="siswa-edit-nisn" inputmode="numeric"></div>
       <div class="field"><label>Jenis Kelamin</label><select id="siswa-edit-jk"><option value="">-</option><option value="L">Laki-Laki</option><option value="P">Perempuan</option></select></div>
     </div>
     <div class="row">
@@ -1224,45 +1098,67 @@
     <h3 id="modal-ujian-title">Buat Ujian</h3>
     <input type="hidden" id="ujian-id">
     <div class="row">
-      <div class="field"><label>Judul Ujian</label><input type="text" id="ujian-judul" oninput="Survei.statusForm()"></div>
+      <div class="field"><label>Judul Ujian</label><input type="text" id="ujian-judul" placeholder="mis. Try Out SKD CPNS 1"></div>
+      <div class="field hidden"><select id="ujian-kategori"><option value="">SKD CPNS</option></select></div>
       <div class="field">
-        <label>Kategori Soal yang Digunakan</label>
-        <select id="ujian-kategori" onchange="Guru.muatPilihanSoalUntukUjian();Survei.statusForm()">
-          <option value="">(Belum ada soal aktif)</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Sub-Kategori / Kelompok (opsional)</label>
-        <input type="text" id="ujian-subkategori" list="daftar-subkategori-soal" placeholder="mis. Bab 1 — kosongkan untuk pakai semua sub-kategori" onchange="Guru.muatPilihanSoalUntukUjian()">
+        <label>Paket Soal / Try Out (opsional)</label>
+        <input type="text" id="ujian-subkategori" list="daftar-subkategori-soal" placeholder="mis. FR SKD II 2026 — kosongkan untuk semua paket" onchange="Guru.muatPilihanSoalUntukUjian()">
       </div>
     </div>
-    <p class="subtitle" style="margin-top:-.6rem">Daftar soal di bawah otomatis mengikuti kategori &amp; sub-kategori
-      yang dipilih di atas (semua soal yang cocok otomatis tercentang — tidak perlu dicentang satu per satu), supaya
-      soal Ulangan Harian Bab 1 tidak tercampur dengan Bab 2, UTS, UAS, dst. Kategori baru bisa dibuat lewat tombol
-      "⚙ Kelola Kategori" di tab Bank Soal.</p>
+    <div class="field">
+      <label>Ambil soal dari Mapel / Kategori</label>
+      <select id="ujian-sumber" onchange="Guru.muatPilihanSoalUntukUjian()"><option value="">Semua mapel yang memuat soal TWK/TIU/TKP</option></select>
+    </div>
+    <p class="subtitle" style="margin-top:-.4rem">Soal dipilih berdasarkan <b>subtes</b> tiap soal (TWK/TIU/TKP), dari mapel &amp; paket yang dipilih di atas — soal tidak perlu dipecah per kategori.
+      Isi jumlah soal tiap subtes (resmi: TWK 30, TIU 35, TKP 45 = 110 soal) lalu klik <b>Susun Soal</b>.
+      <b>Ujian satu subtes saja?</b> isi <b>0</b> pada subtes lain (mis. TIU 35, TWK 0, TKP 0). Urutan di layar peserta selalu TWK → TIU → TKP.</p>
     <div class="field">
       <div class="row" style="justify-content:space-between;align-items:center;margin:0 0 .4rem">
-        <label style="margin:0">Pilih Soal</label>
+        <label style="margin:0">Soal yang Dipakai <span id="skd-hitung-pilih" class="subtitle" style="display:inline"></span></label>
         <div style="display:flex;gap:.4rem">
           <button type="button" class="secondary small" onclick="Guru.pilihSemuaSoalUjian(true)">Pilih Semua</button>
           <button type="button" class="secondary small" onclick="Guru.pilihSemuaSoalUjian(false)">Kosongkan Semua</button>
         </div>
       </div>
+      <div class="row" style="margin:.2rem 0 .5rem;align-items:flex-end">
+        <div class="field"><label>TWK</label><input type="number" id="ujian-n-twk" min="0" value="30" oninput="Guru.ambangDariJumlah_();Guru.hitungPilihSkd()"></div>
+        <div class="field"><label>TIU</label><input type="number" id="ujian-n-tiu" min="0" value="35" oninput="Guru.ambangDariJumlah_();Guru.hitungPilihSkd()"></div>
+        <div class="field"><label>TKP</label><input type="number" id="ujian-n-tkp" min="0" value="45" oninput="Guru.ambangDariJumlah_();Guru.hitungPilihSkd()"></div>
+        <div class="field" style="flex:0 0 auto"><button type="button" class="accent small" onclick="Guru.susunSoalSkd(false)"><i class="fa-solid fa-wand-magic-sparkles"></i> Susun Soal</button> <button type="button" class="secondary small" onclick="Guru.susunSoalSkd(true)"><i class="fa-solid fa-shuffle"></i> Acak Ulang</button></div>
+      </div>
+      <div id="skd-kurang-info" class="skd-kurang-info" role="status" aria-live="polite"></div>
       <div id="pilihan-soal-ujian" style="max-height:220px;overflow-y:auto;border:1px solid var(--c-line);padding:.6rem;border-radius:3px"></div>
     </div>
     <div class="row">
-      <div class="field"><label>Durasi (menit)</label><input type="number" id="ujian-durasi" value="60"></div>
+      <div class="field"><label>Durasi (menit)</label><input type="number" id="ujian-durasi" value="100"></div>
       <div class="field"><label>Toleransi keterlambatan (menit)</label><input type="number" id="ujian-toleransi" value="10"></div>
-      <div class="field"><label>Nilai minimal lulus (KKM)</label><input type="number" id="ujian-kkm" value="75"></div>
+      <input type="hidden" id="ujian-kkm" value="311">
       <div class="field"><label>Maksimal pelanggaran sebelum diblokir</label><input type="number" id="ujian-max-pelanggaran" value="3"></div>
+    </div>
+    <div class="field skd-ambang-box">
+      <label>Ambang Batas Kelulusan SKD <span class="subtitle" style="display:inline">— mengikuti aturan SKD CPNS terbaru (Kepmen PANRB); ubah bila ada keputusan baru</span></label>
+      <div class="row">
+        <div class="field" style="flex:2"><select id="ujian-formasi" onchange="Guru.terapkanPresetAmbang()">
+          <option value="umum">Formasi Umum (TWK 65 · TIU 80 · TKP 166 · Total 311)</option>
+          <option value="disabilitas">Penyandang Disabilitas / Putra-Putri Papua (TIU 60 · Total 286)</option>
+          <option value="cumlaude">Lulusan Terbaik (Cumlaude) / Diaspora (TIU 85 · Total 311)</option>
+          <option value="dokter">Formasi Dokter (TIU 80 · Total 311)</option>
+          <option value="abk">ABK / Rescuer / Pengamat Gunung Api (TIU 70 · Total 286)</option>
+        </select></div>
+        <div class="field"><label>TWK min</label><input type="number" id="ujian-amb-twk" min="0" value="65"></div>
+        <div class="field"><label>TIU min</label><input type="number" id="ujian-amb-tiu" min="0" value="80"></div>
+        <div class="field"><label>TKP min</label><input type="number" id="ujian-amb-tkp" min="0" value="166"></div>
+        <div class="field"><label>Total min</label><input type="number" id="ujian-amb-total" min="0" value="311"></div>
+      </div>
+      <p style="font-size:.78rem;color:var(--c-muted);margin:.2rem 0 0">Penilaian: TWK &amp; TIU benar = 5, salah/kosong = 0; TKP tiap opsi 1–5. Lulus bila semua ambang batas terpenuhi. Nilai 0 = tidak disyaratkan.</p>
     </div>
     <div class="row">
       <div class="field"><label>Jadwal token dibuka</label><input type="datetime-local" id="ujian-mulai"></div>
       <div class="field"><label>Jadwal token ditutup</label><input type="datetime-local" id="ujian-selesai"></div>
     </div>
     <div class="row">
-      <div class="field"><label><input type="checkbox" id="ujian-acak-soal" checked style="width:auto"> Acak urutan soal per siswa</label></div>
-      <div class="field"><label><input type="checkbox" id="ujian-acak-opsi" checked style="width:auto"> Acak urutan opsi jawaban per siswa</label></div>
+      <div class="field"><label><input type="checkbox" id="ujian-acak-soal" checked style="width:auto"> Acak urutan soal per siswa (di dalam tiap subtes)</label></div>
+      <div class="field"><label><input type="checkbox" id="ujian-acak-opsi" style="width:auto"> Acak urutan opsi jawaban per siswa (CAT BKN asli tidak mengacak)</label></div>
     </div>
     <div class="field">
       <label>Instruksi Remedial Tambahan (opsional, ditampilkan di bawah pesan, hanya untuk siswa yang belum lulus)</label>
@@ -1291,24 +1187,7 @@
       </select>
       <p style="font-size:.8rem;color:var(--c-muted);margin:.35rem 0 0">Setelah siswa menekan Selesai, nilai dikirim ke server lebih dulu, lalu siswa mengunggah foto coretan (JPG/PNG/HEIC, boleh lebih dari 1). Nilai Lulus/Remedial baru tampil setelah foto terkirim. Foto muncul di sebelah nilai pada <strong>Rekap Nilai</strong>.</p>
     </div>
-    <div class="field">
-      <label for="ujian-survei">Survei Setelah Ujian (Survei Karakter / Sulingjar)</label>
-      <select id="ujian-survei" onchange="Survei.statusForm()">
-        <option value="">Nonaktif</option>
-        <option value="auto">Otomatis — ikut paket survei di Bank Soal (kata "Numerasi" → Survei Karakter, "Literasi" → Sulingjar)</option>
-        <option value="karakter">Survei Karakter (setelah Numerasi)</option>
-        <option value="sulingjar">Survei Lingkungan Belajar / Sulingjar (setelah Literasi)</option>
-      </select>
-      <label style="margin-top:.5rem"><input type="checkbox" id="ujian-survei-tampil" style="width:auto"> Tampilkan nilai survei (per dimensi) ke siswa setelah mengisi <span class="subtitle" style="display:inline">— hanya untuk latihan; ANBK/TKA asli tidak menampilkannya.</span></label>
-      <div style="margin-top:.6rem;padding:.6rem .7rem;border:1px dashed rgba(128,128,128,.4);border-radius:10px">
-        <div style="font-size:.84rem;font-weight:600">Butir survei untuk latihan ini</div>
-        <div id="ujian-survei-status" style="font-size:.8rem;color:var(--c-muted);margin:.2rem 0 .5rem"></div>
-        <div style="font-size:.76rem;color:var(--c-muted)">Butir survei dikelola di <strong>Bank Soal › Kelola Soal</strong> (kartu Survei Karakter / Sulingjar) dan menyatu dengan soal kategori ini — upload, unduh template, dan edit dilakukan di sana, sekali saja.</div>
-        <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.4rem"><button type="button" class="secondary small" onclick="Survei.pakaiBawaan()">Lepas butir khusus lama dari ujian ini</button></div>
-      </div>
-      <p style="font-size:.8rem;color:var(--c-muted);margin:.35rem 0 0">Urutan siswa: tes → (unggah bukti orak-orik bila aktif) → survei → nilai. Semua butir wajib dijawab; jawaban terlalu cepat, seragam, atau saling bertentangan akan diingatkan sekali dan ditandai di <strong>Hasil Survei</strong>.</p>
-    </div>
-    <div class="field">
+    <div class="field" style="display:none">
       <label>Pesan untuk Siswa Berdasarkan Nilai (0 – 100)</label>
       <p style="font-size:.8rem;color:var(--c-muted);margin:0 0 .5rem">Setiap nilai (0, 1, 2, … 100) bisa punya pesan sendiri. Tidak perlu mengisi satu per satu: <strong>unduh template Word</strong>, ubah pesannya, lalu <strong>import</strong> — semua nilai terisi sekaligus. Pesan yang dikosongkan otomatis memakai default.</p>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem">
@@ -1338,133 +1217,99 @@
   </div>
 </div>
 
-<!-- ======================= KONFIRMASI DATA PESERTA (setelah login) ======================= -->
-<div id="siswa-portal" class="anbk-page hidden">
-  <header class="anbk-hero"><div class="anbk-hero-in"><div class="anbk-brand"><img class="anbk-logo-tw" src="icons/tutwuri.png" alt="Tut Wuri Handayani"><img class="anbk-logo-sch" src="icons/smpn2.png" alt="SMP Negeri 2 Seririt"><div class="anbk-brand-t"><b>PUSMENDIK</b><span>APLIKASI ANBK</span></div></div><div class="anbk-user" onclick="Anbk.menuUser(event)" role="button" tabindex="0"><span class="anbk-user-nama"></span><span class="anbk-user-ico"><i class="fa-solid fa-graduation-cap"></i></span><div class="anbk-usermenu hidden"><button type="button" data-aksi="kembali" onclick="Anbk.kembaliKeKonfirmasiData()"><i class="fa-solid fa-key"></i> Ganti Token</button><button type="button" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button></div></div></div></header>
-  <main class="anbk-wrap anbk-konf">
-    <section class="anbk-card anbk-card-token">
-      <div class="anbk-token-row">Token : <b id="kd-token-tampil">------</b> <button type="button" class="anbk-btn anbk-btn-primary anbk-btn-xs" id="kd-refresh" onclick="Anbk.segarkanToken(true)">Refresh</button></div>
-      <div id="siswa-blokir-banner" class="anbk-blokir hidden" role="alert"><b>Akun Anda sedang diblokir</b><span>Anda belum bisa mengikuti tes selama blokir ini aktif.</span><span id="siswa-blokir-alasan"></span></div>
-    </section>
-    <section class="anbk-card sw-entry">
-      <h3><i class="fa-solid fa-gauge-high" style="color:#0d6efd"></i> Akun Saya</h3>
-      <p>Pantau nilai, grafik perkembangan, peringkat, dan materi yang perlu diperkuat dari simulasi yang sudah kamu kerjakan.</p>
-      <div class="sw-ent-grid">
-        <button type="button" onclick="PortalSiswa.buka('dashboard')"><i class="fa-solid fa-gauge-high"></i>Dashboard</button>
-        <button type="button" onclick="PortalSiswa.buka('grafik')"><i class="fa-solid fa-chart-line"></i>Grafik Perkembangan</button>
-        <button type="button" onclick="PortalSiswa.buka('riwayat')"><i class="fa-solid fa-clock-rotate-left"></i>Riwayat Simulasi</button>
-        <button type="button" onclick="PortalSiswa.buka('leaderboard')"><i class="fa-solid fa-trophy"></i>Leaderboard</button>
-        <button type="button" onclick="PortalSiswa.buka('analisis','literasi')"><i class="fa-solid fa-book-open"></i>Analisis Literasi</button>
-        <button type="button" onclick="PortalSiswa.buka('analisis','numerasi')"><i class="fa-solid fa-calculator"></i>Analisis Numerasi</button>
-      </div>
-    </section>
-    <section class="anbk-card anbk-card-form">
-      <h2>Konfirmasi data Peserta</h2>
-      <div class="anbk-f"><label>Username</label><div class="anbk-v" id="kd-username">-</div></div>
-      <div class="anbk-f"><label>Nama Peserta</label><div class="anbk-v" id="kd-nama1">-</div></div>
-      <div class="anbk-f"><label>Jenis Kelamin</label><div class="anbk-v anbk-v-lg" id="kd-jk">-</div></div>
-      <div class="anbk-f"><label>Mata Ujian</label><div class="anbk-v" id="kd-mata">-</div></div>
-      <div class="anbk-f"><label>Nama Peserta</label><input type="text" class="anbk-in" id="kd-nama2" placeholder="Ketikkan Nama Peserta" autocomplete="off" autocapitalize="words" spellcheck="false"></div>
-      <div class="anbk-f"><label>Tanggal Lahir</label><div class="anbk-tgl"><select id="kd-tgl" aria-label="Hari"></select><select id="kd-bln" aria-label="Bulan"></select><select id="kd-thn" aria-label="Tahun"></select></div></div>
-      <div class="anbk-f anbk-f-token"><label for="input-token-ujian">Token</label><input type="text" id="input-token-ujian" placeholder="Ketikkan token di sini" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" maxlength="12" onkeydown="if(event.key==='Enter'){event.preventDefault();Siswa.cekToken()}"></div>
-      <div id="token-error" class="anbk-err" role="alert"></div>
-      <button type="button" id="btn-cari-ujian" class="anbk-btn anbk-btn-primary anbk-btn-block" onclick="Siswa.cekToken()">Submit</button>
-    </section>
+<!-- ======================= DAFTAR SIMULASI (setelah login peserta) ======================= -->
+<div id="daftar-screen" class="skd-page hidden">
+  <header class="skd-topbar"><div class="skd-topbar-in"><div class="skd-brand"><img class="skd-logo" src="icons/bkn.png" alt="CAT BKN"><div class="skd-brand-t"><h1>SIMULASI CAT SKD CPNS</h1><p>Pusat Pengembangan Sistem Seleksi</p></div></div><div class="skd-userbox"><span class="skd-hello"><i class="fa-solid fa-circle-user"></i> Hello, <b class="skd-user-nama">-</b></span>
+      <button type="button" class="skd-btn skd-btn-ghost" onclick="Skd.tampilDashboard()"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+      <button type="button" class="skd-btn skd-btn-ghost" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div></div></header>
+  <main class="skd-wrap">
+    <div id="siswa-blokir-banner" class="skd-blokir hidden" role="alert"><b>Akun Anda sedang diblokir</b> <span>Anda belum bisa mengikuti simulasi selama blokir ini aktif.</span> <span id="siswa-blokir-alasan"></span></div>
+    <h2 class="skd-h2"><i class="fa-solid fa-laptop"></i> Daftar Simulasi</h2>
+    <p class="skd-muted">Silakan pilih menu Simulasi Ujian yang tersedia.</p>
+    <div id="skd-daftar" class="skd-grid-sim"><p class="skd-muted">Memuat...</p></div>
   </main>
-  <div id="konfirmasi-ujian" class="hidden"><span id="konf-judul-ujian"></span><span id="konf-info-ujian"></span></div>
-  <span id="siswa-nama-label" class="hidden"></span>
-  <footer class="anbk-foot">Aplikasi simulasi latihan TKA &middot; SMP Negeri 2 Seririt</footer>
+  <div id="konfirmasi-ujian" class="hidden"><span id="konf-judul-ujian"></span><span id="konf-info-ujian"></span></div><span id="siswa-nama-label" class="hidden"></span>
+  <footer class="skd-foot">Aplikasi simulasi latihan SKD CPNS &middot; bukan aplikasi resmi BKN</footer>
 </div>
 
-<!-- ======================= PORTAL SISWA: DASHBOARD & MENU ======================= -->
-<div id="sw-screen" class="anbk-page am-scope hidden">
-  <header class="anbk-hero"><div class="anbk-hero-in"><div class="anbk-brand"><img class="anbk-logo-tw" src="icons/tutwuri.png" alt="Tut Wuri Handayani"><img class="anbk-logo-sch" src="icons/smpn2.png" alt="SMP Negeri 2 Seririt"><div class="anbk-brand-t"><b>PUSMENDIK</b><span>APLIKASI ANBK</span></div></div><div class="anbk-user" onclick="Anbk.menuUser(event)" role="button" tabindex="0"><span class="anbk-user-nama"></span><span class="anbk-user-ico"><i class="fa-solid fa-graduation-cap"></i></span><div class="anbk-usermenu hidden"><button type="button" onclick="PortalSiswa.mulaiSimulasi()"><i class="fa-solid fa-play"></i> Mulai Simulasi</button><button type="button" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button></div></div></div></header>
-  <div class="sw-wrap">
-    <aside class="sw-card sw-side" id="sw-side" aria-label="Menu siswa"></aside>
-    <main class="sw-main" id="sw-isi" aria-live="polite"></main>
+<!-- ======================= INFO SIMULASI ======================= -->
+<div id="info-screen" class="skd-page hidden">
+  <header class="skd-topbar"><div class="skd-topbar-in"><div class="skd-brand"><img class="skd-logo" src="icons/bkn.png" alt="CAT BKN"><div class="skd-brand-t"><h1>SIMULASI CAT SKD CPNS</h1><p>Pusat Pengembangan Sistem Seleksi</p></div></div><div class="skd-userbox"><span class="skd-hello"><i class="fa-solid fa-circle-user"></i> Hello, <b class="skd-user-nama">-</b></span>
+      <button type="button" class="skd-btn skd-btn-ghost" onclick="Skd.tampilDashboard()"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+      <button type="button" class="skd-btn skd-btn-ghost" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div></div></header>
+  <main class="skd-wrap skd-info">
+    <section class="skd-card skd-info-main">
+      <div class="skd-card-h skd-h-blue"><i class="fa-solid fa-circle-info"></i> <span id="info-judul">-</span></div>
+      <div class="skd-card-b">
+        <p class="skd-desc" id="info-deskripsi">-</p>
+        <div class="skd-cols">
+          <div><h4 class="skd-h4">Informasi Ujian</h4>
+            <table class="skd-tbl-info"><tbody>
+              <tr><td><i class="fa-solid fa-clock skd-ic-y"></i> Durasi</td><td id="info-durasi">-</td></tr>
+              <tr><td><i class="fa-solid fa-list-check skd-ic-g"></i> Total Soal</td><td id="info-total">-</td></tr>
+              <tr><td><i class="fa-solid fa-trophy skd-ic-c"></i> Passing Grade</td><td id="info-passing">-</td></tr>
+            </tbody></table></div>
+          <div><h4 class="skd-h4">Materi Ujian</h4><ul class="skd-materi" id="info-materi"></ul></div>
+        </div>
+      </div>
+    </section>
+    <aside>
+      <section class="skd-card"><div class="skd-card-h skd-h-yellow"><i class="fa-solid fa-triangle-exclamation"></i> Perhatian Penting</div>
+        <ul class="skd-perhatian">
+          <li class="ok"><i class="fa-solid fa-check"></i> Pastikan koneksi internet stabil</li>
+          <li class="ok"><i class="fa-solid fa-check"></i> Siapkan alat tulis untuk coret-coretan</li>
+          <li class="ok"><i class="fa-solid fa-check"></i> Jawaban akan tersimpan otomatis</li>
+          <li class="no"><i class="fa-solid fa-xmark"></i> Jangan refresh atau tutup browser</li>
+          <li class="no"><i class="fa-solid fa-xmark"></i> Ujian hanya dapat dikerjakan 1 kali</li>
+          <li class="wait"><i class="fa-solid fa-clock"></i> Waktu akan berjalan otomatis setelah mulai</li>
+        </ul></section>
+      <section class="skd-card skd-card-mulai">
+        <div class="skd-token" id="info-token-box"><label for="input-token-ujian">Token Ujian</label><input type="text" id="input-token-ujian" placeholder="Masukkan token dari pengawas" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"><div id="token-error" class="skd-err" role="alert"></div></div>
+        <button type="button" id="info-btn-mulai" class="skd-btn skd-btn-green skd-btn-lg" onclick="Skd.mintaKonfirmasiMulai()"><i class="fa-solid fa-play"></i> <span id="info-btn-teks">Mulai Ujian Sekarang</span></button>
+        <button type="button" class="skd-btn skd-btn-grey" onclick="Skd.tampilDaftar()"><i class="fa-solid fa-arrow-left"></i> Kembali</button>
+      </section>
+    </aside>
+  </main>
+  <div id="modal-konfirmasi-mulai" class="skd-modal-bg hidden" onclick="if(event.target===this)Skd.tutupModal('modal-konfirmasi-mulai')">
+    <div class="skd-modal" role="dialog" aria-modal="true" aria-label="Konfirmasi Mulai Ujian">
+      <div class="skd-modal-h"><h3><i class="fa-solid fa-triangle-exclamation"></i> Konfirmasi Mulai Ujian</h3><button type="button" class="skd-x" onclick="Skd.tutupModal('modal-konfirmasi-mulai')" aria-label="Tutup">&times;</button></div>
+      <div class="skd-modal-b"><p><b>Apakah Anda yakin ingin memulai ujian?</b></p><p class="skd-muted">Setelah memulai ujian:</p><ul><li>Timer akan berjalan otomatis</li><li>Anda tidak dapat mengulangi ujian</li><li>Pastikan koneksi internet stabil</li></ul></div>
+      <div class="skd-modal-f"><button type="button" class="skd-btn skd-btn-grey" onclick="Skd.tutupModal('modal-konfirmasi-mulai')"><i class="fa-solid fa-xmark"></i> Batal</button><button type="button" id="btn-ya-mulai" class="skd-btn skd-btn-green" onclick="Skd.mulaiUjian()"><i class="fa-solid fa-play"></i> Ya, Mulai Ujian</button></div>
+    </div>
   </div>
-  <footer class="anbk-foot">Aplikasi simulasi latihan TKA &middot; SMP Negeri 2 Seririt</footer>
+  <footer class="skd-foot">Aplikasi simulasi latihan SKD CPNS &middot; bukan aplikasi resmi BKN</footer>
 </div>
 
-<!-- ======================= KONFIRMASI TES (setelah token benar) ======================= -->
-<div id="tes-konfirmasi-screen" class="anbk-page hidden">
-  <header class="anbk-hero"><div class="anbk-hero-in"><div class="anbk-brand"><img class="anbk-logo-tw" src="icons/tutwuri.png" alt="Tut Wuri Handayani"><img class="anbk-logo-sch" src="icons/smpn2.png" alt="SMP Negeri 2 Seririt"><div class="anbk-brand-t"><b>PUSMENDIK</b><span>APLIKASI ANBK</span></div></div><div class="anbk-user" onclick="Anbk.menuUser(event)" role="button" tabindex="0"><span class="anbk-user-nama"></span><span class="anbk-user-ico"><i class="fa-solid fa-graduation-cap"></i></span><div class="anbk-usermenu hidden"><button type="button" data-aksi="kembali" onclick="Anbk.kembaliKeKonfirmasiData()"><i class="fa-solid fa-key"></i> Ganti Token</button><button type="button" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button></div></div></div></header>
-  <main class="anbk-center">
-    <section class="anbk-card anbk-card-tes">
-      <h2>Konfirmasi Tes</h2>
-      <div class="anbk-f"><label>Nama Tes</label><div class="anbk-v anbk-v-lg" id="tk-nama">-</div></div>
-      <div class="anbk-f"><label>Status Tes</label><div class="anbk-v anbk-v-lg" id="tk-status">Tes Baru</div></div>
-      <div class="anbk-f"><label>Waktu Tes</label><div class="anbk-v anbk-v-lg" id="tk-waktu">-</div></div>
-      <div class="anbk-f"><label>Alokasi Waktu Tes</label><div class="anbk-v anbk-v-lg" id="tk-alokasi">-</div></div>
-      <button type="button" id="tk-mulai" class="anbk-btn anbk-btn-primary anbk-btn-block" onclick="Siswa.mulaiUjian()">Mulai</button>
-    </section>
-  </main>
-  <footer class="anbk-foot">Aplikasi simulasi latihan TKA &middot; SMP Negeri 2 Seririt</footer>
-</div>
-
-<!-- ======================= LAYAR UJIAN ======================= -->
-<div id="ujian-screen" class="anbk-page hidden">
-  <header class="anbk-hero"><div class="anbk-hero-in"><div class="anbk-brand"><img class="anbk-logo-tw" src="icons/tutwuri.png" alt="Tut Wuri Handayani"><img class="anbk-logo-sch" src="icons/smpn2.png" alt="SMP Negeri 2 Seririt"><div class="anbk-brand-t"><b>PUSMENDIK</b><span>APLIKASI ANBK</span></div></div><div class="anbk-user"><span class="anbk-user-nama"></span><span class="anbk-user-ico"><i class="fa-solid fa-graduation-cap"></i></span></div></div></header>
-  <main class="anbk-wrap anbk-wrap-ujian">
-    <section class="anbk-card anbk-card-ujian">
-      <div class="anbk-u-top">
-        <h2 class="anbk-u-no" id="u-nomor">Soal nomor 1</h2>
-        <div class="anbk-u-tools">
-          <span id="pelanggaran-indikator" class="pelanggaran-indikator"></span>
-          <button type="button" class="anbk-pill anbk-pill-blue" onclick="Anbk.bukaInfo()" title="Informasi Soal" aria-label="Informasi Soal"><i class="fa-solid fa-info anbk-ic"></i><span class="anbk-tx">INFORMASI SOAL</span></button>
-          <span class="anbk-pill anbk-pill-timer" title="Sisa waktu">Sisa Waktu : <b id="timer-display">--:--:--</b></span>
-          <button type="button" class="anbk-pill anbk-pill-blue" onclick="Anbk.bukaDaftar()" title="Daftar Soal" aria-label="Daftar Soal"><span class="anbk-tx">Daftar Soal</span> <i class="fa-solid fa-table-cells-large"></i></button>
-        </div>
+<!-- ======================= LAYAR UJIAN (tampilan CAT BKN) ======================= -->
+<div id="ujian-screen" class="skd-page skd-exam hidden">
+  <header class="skd-exam-head">
+    <div class="skd-exam-title"><h1 id="ujian-judul-aktif">-</h1><p>Peserta: <span id="ujian-peserta">-</span></p></div>
+    <div class="skd-exam-prog"><span class="skd-prog-teks"><b id="u-prog-teks">1 / 1</b></span><div class="skd-prog-bar"><i id="exam-progress-fill"></i></div></div>
+    <div class="skd-exam-timer"><i class="fa-solid fa-clock"></i> <b id="timer-display">--:--:--</b></div>
+  </header>
+  <div class="skd-exam-body">
+    <aside class="skd-navpanel" id="skd-navpanel">
+      <h3><i class="fa-solid fa-list"></i> Navigasi Soal <button type="button" class="skd-navtoggle" onclick="Skd.toggleNav()" aria-label="Tampilkan/sembunyikan navigasi"><i class="fa-solid fa-chevron-down"></i></button></h3>
+      <div class="soal-grid" id="soal-grid"></div>
+      <div class="skd-legend"><span><i class="lg lg-ans"></i>Dijawab <b id="lg-jawab">0</b></span><span><i class="lg lg-rag"></i>Ragu-ragu <b id="lg-ragu">0</b></span><span><i class="lg lg-no"></i>Belum <b id="lg-kosong">0</b></span></div>
+      <span id="nav-progress-teks" class="hidden"></span>
+      <span id="pelanggaran-indikator" class="pelanggaran-indikator"></span>
+    </aside>
+    <section class="skd-qpanel">
+      <div class="skd-q-top"><h2 id="u-nomor">Soal 1 dari 1</h2><span class="skd-badge-subtes" id="u-subtes"></span>
+        <div class="skd-font" role="group" aria-label="Ukuran teks soal"><span class="skd-font-lbl"><i class="fa-solid fa-text-height"></i> Ukuran teks</span><button type="button" id="skala-kecil" class="skd-fs" onclick="SkalaSoal.ubah(-1)" aria-label="Perkecil teks" title="Perkecil teks">A<small>&minus;</small></button><button type="button" id="skala-sedang" class="skd-fs skd-fs-nilai" onclick="SkalaSoal.reset()" aria-label="Ukuran normal" title="Klik untuk kembali ke ukuran normal"><span id="skala-nilai">100%</span></button><button type="button" id="skala-besar" class="skd-fs" onclick="SkalaSoal.ubah(1)" aria-label="Perbesar teks" title="Perbesar teks">A<small>+</small></button></div>
       </div>
-      <div class="anbk-u-sub">
-        <div class="anbk-font" role="group" aria-label="Ukuran font soal"><span>Ukuran font soal:</span>
-          <button type="button" id="skala-kecil" class="anbk-fs fs1" onclick="SkalaSoal.pilih(0)" aria-label="Kecil">A</button>
-          <button type="button" id="skala-sedang" class="anbk-fs fs2" onclick="SkalaSoal.pilih(1)" aria-label="Sedang">A</button>
-          <button type="button" id="skala-besar" class="anbk-fs fs3" onclick="SkalaSoal.pilih(2)" aria-label="Besar">A</button>
-          <span id="skala-nilai" class="hidden"></span>
-        </div>
-        <div class="anbk-u-mapel" id="ujian-judul-aktif">-</div>
-      </div>
-      <div class="anbk-hr"></div>
-      <div class="anbk-soalbox"><div class="anbk-soalbar"></div><div class="question-card" id="question-card">Memuat soal...</div></div>
-      <div class="anbk-hr anbk-hr-b"></div>
-      <div class="anbk-nav">
-        <button type="button" id="btn-soal-prev" class="anbk-btn anbk-btn-red" onclick="Siswa.soalSebelumnya()" title="Soal sebelumnya" aria-label="Soal sebelumnya"><i class="fa-solid fa-circle-chevron-left"></i> <span>Soal sebelumnya</span></button>
-        <label class="anbk-btn anbk-btn-yellow anbk-ragu" title="Ragu-ragu"><input type="checkbox" id="chk-ragu" onchange="Siswa.toggleRagu()"><span>Ragu-ragu</span></label>
-        <button type="button" id="btn-soal-next" class="anbk-btn anbk-btn-primary" onclick="Siswa.soalBerikutnya()" title="Soal berikutnya" aria-label="Soal berikutnya"><span>Soal berikutnya</span> <i class="fa-solid fa-circle-chevron-right"></i></button>
+      <div class="question-card" id="question-card">Memuat soal...</div>
+      <div class="skd-nav">
+        <button type="button" id="btn-soal-next" class="skd-btn skd-btn-save" onclick="Siswa.soalBerikutnya()"><i class="fa-solid fa-floppy-disk"></i> <span>Simpan dan Lanjutkan</span></button>
+        <label class="skd-btn skd-btn-orange skd-ragu" title="Tandai ragu-ragu"><input type="checkbox" id="chk-ragu" onchange="Siswa.toggleRagu()"><i class="fa-solid fa-flag"></i> <span>Ragu-ragu</span></label>
+        <button type="button" id="btn-soal-prev" class="skd-btn skd-btn-outline" onclick="Siswa.soalSebelumnya()"><i class="fa-solid fa-backward-step"></i> <span>Sebelumnya</span></button>
+        <button type="button" id="btn-lewatkan" class="skd-btn skd-btn-outline-red" onclick="Skd.lewatkan()"><i class="fa-solid fa-forward"></i> <span>Lewatkan</span></button>
+        <button type="button" class="skd-btn skd-btn-grey skd-btn-sm" onclick="ExamEngine.simpanSekarang()" title="Simpan jawaban sekarang"><i class="fa-regular fa-floppy-disk"></i></button>
       </div>
     </section>
-  </main>
-  <span id="ujian-peserta" class="hidden"></span><i id="exam-progress-fill" class="hidden"></i>
+  </div>
   <div class="exam-watermark" id="exam-watermark" aria-hidden="true"></div>
-
-  <!-- Daftar Soal -->
-  <div id="modal-daftar" class="anbk-modal-bg hidden" onclick="if(event.target===this)Anbk.tutupModal('modal-daftar')">
-    <div class="anbk-modal" role="dialog" aria-modal="true" aria-label="Daftar Soal">
-      <div class="anbk-modal-h"><h3>Daftar Soal</h3><button type="button" class="anbk-x" onclick="Anbk.tutupModal('modal-daftar')" aria-label="Tutup">&times;</button></div>
-      <div class="anbk-modal-b"><div class="soal-grid" id="soal-grid"></div>
-        <div class="anbk-legend"><span><i class="lg lg-now"></i>Sedang dibuka</span><span><i class="lg lg-ans"></i>Sudah dijawab</span><span><i class="lg lg-rag"></i>Ragu-ragu</span><span><i class="lg lg-no"></i>Belum dijawab</span></div>
-      </div>
-    </div>
-  </div>
-  <!-- Informasi Soal -->
-  <div id="modal-info" class="anbk-modal-bg hidden" onclick="if(event.target===this)Anbk.tutupModal('modal-info')">
-    <div class="anbk-modal" role="dialog" aria-modal="true" aria-label="Informasi Soal">
-      <div class="anbk-modal-h"><h3>Informasi Soal</h3><button type="button" class="anbk-x" onclick="Anbk.tutupModal('modal-info')" aria-label="Tutup">&times;</button></div>
-      <div class="anbk-modal-b anbk-info">
-        <table><tbody>
-          <tr><td>Nomor soal</td><td id="inf-nomor">-</td></tr>
-          <tr><td>Jenis soal</td><td id="inf-jenis">-</td></tr>
-          <tr><td>Status jawaban</td><td id="inf-status">-</td></tr>
-          <tr><td>Jumlah soal</td><td id="inf-total">-</td></tr>
-          <tr><td>Sudah dijawab</td><td><span id="lg-jawab">0</span> <small>(<span id="nav-progress-teks">0 / 0</span>)</small></td></tr>
-          <tr><td>Ragu-ragu</td><td id="lg-ragu">0</td></tr>
-          <tr><td>Belum dijawab</td><td id="lg-kosong">0</td></tr>
-        </tbody></table>
-        <button type="button" class="anbk-btn anbk-btn-primary anbk-btn-block" onclick="ExamEngine.simpanSekarang()"><i class="fa-regular fa-floppy-disk"></i> Simpan jawaban sekarang</button>
-      </div>
-    </div>
-  </div>
 </div>
 
 <div id="anticheat-warning" class="anticheat-warning hidden">
@@ -1475,26 +1320,26 @@
 </div>
 
 <!-- ======================= KONFIRMASI SELESAI TES ======================= -->
-<div id="modal-kumpul" class="anbk-page anbk-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="kumpul-judul">
-  <header class="anbk-hero"><div class="anbk-hero-in"><div class="anbk-brand"><img class="anbk-logo-tw" src="icons/tutwuri.png" alt="Tut Wuri Handayani"><img class="anbk-logo-sch" src="icons/smpn2.png" alt="SMP Negeri 2 Seririt"><div class="anbk-brand-t"><b>PUSMENDIK</b><span>APLIKASI ANBK</span></div></div><div class="anbk-user"><span class="anbk-user-nama"></span><span class="anbk-user-ico"><i class="fa-solid fa-graduation-cap"></i></span></div></div></header>
-  <main class="anbk-center">
-    <section class="anbk-card anbk-card-selesai">
+<div id="modal-kumpul" class="skd-page skd-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="kumpul-judul">
+  <header class="skd-topbar"><div class="skd-topbar-in"><div class="skd-brand"><img class="skd-logo" src="icons/bkn.png" alt="CAT BKN"><div class="skd-brand-t"><h1>SIMULASI CAT SKD CPNS</h1><p>Pusat Pengembangan Sistem Seleksi</p></div></div></div></header>
+  <main class="skd-center">
+    <section class="skd-card skd-card-selesai">
       <h2 id="kumpul-judul">Konfirmasi Tes</h2>
-      <p class="anbk-p">Terimakasih telah berpartisipasi dalam tes ini. Silahkan tekan tombol <mark class="anbk-mark anbk-mark-red">SELESAI TES</mark> untuk mengakhiri tes. Atau tekan tombol <mark class="anbk-mark anbk-mark-green">KEMBALI</mark> untuk kembali ke halaman tes.</p>
+      <p class="skd-p">Terimakasih telah berpartisipasi dalam tes ini. Silahkan tekan tombol <mark class="skd-mark skd-mark-red">SELESAI TES</mark> untuk mengakhiri tes. Atau tekan tombol <mark class="skd-mark skd-mark-green">KEMBALI</mark> untuk kembali ke halaman tes.</p>
       <span id="kumpul-ikon" class="hidden"></span><span id="kumpul-sub" class="hidden"></span>
-      <div class="anbk-ringkas"><span>Terjawab <b id="kumpul-n-jawab">0</b></span><span>Belum dijawab <b id="kumpul-n-kosong">0</b></span><span>Ragu-ragu <b id="kumpul-n-ragu">0</b></span><span><i class="fa-regular fa-clock"></i> Sisa waktu <b id="kumpul-waktu">00:00</b></span></div>
-      <div id="kumpul-peringatan" class="anbk-peringatan hidden"><p id="kumpul-peringatan-teks"></p><div class="kumpul-chips" id="kumpul-chips"></div></div>
-      <label id="kumpul-cek-wrap" class="anbk-cek hidden"><input type="checkbox" id="kumpul-cek" onchange="KumpulUI.cekBerubah()"><span>Saya mengerti soal yang belum dijawab akan dinilai kosong dan jawaban tidak dapat diubah lagi.</span></label>
-      <div class="anbk-aksi">
-        <button type="button" class="anbk-btn anbk-btn-red" id="kumpul-btn-ya" onclick="KumpulUI.kirim()">SELESAI TES</button>
-        <button type="button" class="anbk-btn anbk-btn-green" onclick="KumpulUI.tutup()">KEMBALI</button>
+      <div class="skd-ringkas"><span>Terjawab <b id="kumpul-n-jawab">0</b></span><span>Belum dijawab <b id="kumpul-n-kosong">0</b></span><span>Ragu-ragu <b id="kumpul-n-ragu">0</b></span><span><i class="fa-regular fa-clock"></i> Sisa waktu <b id="kumpul-waktu">00:00</b></span></div>
+      <div id="kumpul-peringatan" class="skd-peringatan hidden"><p id="kumpul-peringatan-teks"></p><div class="kumpul-chips" id="kumpul-chips"></div></div>
+      <label id="kumpul-cek-wrap" class="skd-cek hidden"><input type="checkbox" id="kumpul-cek" onchange="KumpulUI.cekBerubah()"><span>Saya mengerti soal yang belum dijawab akan dinilai kosong dan jawaban tidak dapat diubah lagi.</span></label>
+      <div class="skd-aksi">
+        <button type="button" class="skd-btn skd-btn-red" id="kumpul-btn-ya" onclick="KumpulUI.kirim()">SELESAI TES</button>
+        <button type="button" class="skd-btn skd-btn-green" onclick="KumpulUI.tutup()">KEMBALI</button>
       </div>
     </section>
   </main>
 </div>
 
 <!-- ======================= LAYAR PENGIRIMAN JAWABAN ======================= -->
-<div id="overlay-kirim" class="anbk-page kumpul-backdrop kumpul-kirim hidden" role="alertdialog" aria-live="assertive">
+<div id="overlay-kirim" class="skd-page kumpul-backdrop kumpul-kirim hidden" role="alertdialog" aria-live="assertive">
   <div class="kumpul-card">
     <div class="kumpul-spinner" id="kirim-spinner"></div>
     <h3 id="kirim-judul">Mengirim jawaban...</h3>
@@ -1503,27 +1348,9 @@
   </div>
 </div>
 
-<!-- ======================= SURVEI KARAKTER / SULINGJAR (setelah tes) ======================= -->
-<div id="survei-screen" class="anbk-page hidden">
-  <header class="anbk-hero"><div class="anbk-hero-in"><div class="anbk-brand"><img class="anbk-logo-tw" src="icons/tutwuri.png" alt="Tut Wuri Handayani"><img class="anbk-logo-sch" src="icons/smpn2.png" alt="SMP Negeri 2 Seririt"><div class="anbk-brand-t"><b>PUSMENDIK</b><span>APLIKASI ANBK</span></div></div><div class="anbk-user"><span class="anbk-user-nama"></span><span class="anbk-user-ico"><i class="fa-solid fa-graduation-cap"></i></span></div></div></header>
-  <main class="anbk-wrap anbk-wrap-ujian">
-    <section class="anbk-card anbk-card-ujian">
-      <div class="anbk-u-top">
-        <h2 class="anbk-u-no" id="sv-nomor">Petunjuk Pengerjaan</h2>
-        <div class="anbk-u-tools"><span class="anbk-pill anbk-pill-timer" id="sv-progres">0 / 0 terjawab</span></div>
-      </div>
-      <div class="anbk-u-sub"><span></span><div class="anbk-u-mapel" id="sv-judul">Survei</div></div>
-      <div class="anbk-hr"></div>
-      <div class="anbk-soalbox"><div class="anbk-soalbar"></div><div id="sv-body"></div></div>
-      <div class="anbk-hr anbk-hr-b"></div>
-      <div class="anbk-nav" id="sv-nav"></div>
-    </section>
-  </main>
-</div>
-
 <!-- ======================= UNGGAH BUKTI ORAK-ORIK (setelah nilai terkirim, sebelum nilai tampil) ======================= -->
-<div id="bukti-screen" class="anbk-page anbk-legacy hidden">
-  <header class="anbk-hero"><div class="anbk-hero-in"><div class="anbk-brand"><img class="anbk-logo-tw" src="icons/tutwuri.png" alt="Tut Wuri Handayani"><img class="anbk-logo-sch" src="icons/smpn2.png" alt="SMP Negeri 2 Seririt"><div class="anbk-brand-t"><b>PUSMENDIK</b><span>APLIKASI ANBK</span></div></div><div class="anbk-user"><span class="anbk-user-nama"></span><span class="anbk-user-ico"><i class="fa-solid fa-graduation-cap"></i></span></div></div></header>
+<div id="bukti-screen" class="skd-page skd-legacy hidden">
+  <header class="skd-topbar"><div class="skd-topbar-in"><div class="skd-brand"><img class="skd-logo" src="icons/bkn.png" alt="CAT BKN"><div class="skd-brand-t"><h1>SIMULASI CAT SKD CPNS</h1><p>Pusat Pengembangan Sistem Seleksi</p></div></div></div></header>
   <div class="bukti-card">
     <div class="bukti-terkirim"><i class="fa-solid fa-circle-check"></i><div><b>Jawaban Anda sudah terkirim</b><span id="bukti-terkirim-sub">Nilai Anda sudah tersimpan aman di server.</span></div></div>
     <p class="hasil-eyebrow">Langkah Terakhir</p>
@@ -1546,45 +1373,33 @@
   </div>
 </div>
 
-<!-- ======================= HASIL UJIAN ======================= -->
-<div id="hasil-screen" class="anbk-page anbk-legacy hidden">
-  <header class="anbk-hero"><div class="anbk-hero-in"><div class="anbk-brand"><img class="anbk-logo-tw" src="icons/tutwuri.png" alt="Tut Wuri Handayani"><img class="anbk-logo-sch" src="icons/smpn2.png" alt="SMP Negeri 2 Seririt"><div class="anbk-brand-t"><b>PUSMENDIK</b><span>APLIKASI ANBK</span></div></div><div class="anbk-user"><span class="anbk-user-nama"></span><span class="anbk-user-ico"><i class="fa-solid fa-graduation-cap"></i></span></div></div></header>
-  <div class="hasil-card" id="hasil-card">
-    <div class="hasil-icon-wrap" id="hasil-icon-wrap">
-      <i class="fa-solid fa-check" id="hasil-icon"></i>
-    </div>
-    <p class="hasil-eyebrow">Hasil Ujian</p>
-    <h2 class="hasil-judul" id="hasil-judul-ujian">-</h2>
-    <div class="status-lulus" id="hasil-status">-</div>
-    <div class="skor-ring">
-      <svg class="skor-ring-svg" viewBox="0 0 120 120">
-        <circle class="skor-ring-bg" cx="60" cy="60" r="52"></circle>
-        <circle class="skor-ring-progress" id="hasil-skor-progress" cx="60" cy="60" r="52"></circle>
-      </svg>
-      <div class="skor-ring-nilai">
-        <span class="nilai-besar" id="hasil-nilai">0</span>
-        <span class="nilai-skala">/ 100</span>
-      </div>
-    </div>
-    <p id="hasil-instruksi" class="hasil-instruksi"></p>
-    <button class="secondary hasil-btn-beranda" id="btn-detail-jawaban" style="display:none;margin-bottom:.6rem" onclick="ExamEngine.bukaDetailJawaban()"><i class="fa-solid fa-magnifying-glass"></i> Lihat Detail Jawaban</button>
-    <button class="accent hasil-btn-beranda" onclick="UI.kembaliKeBerandaSiswa()"><i class="fa-solid fa-house"></i> Kembali ke Beranda</button>
-  </div>
+<!-- ======================= HASIL SIMULASI SKD ======================= -->
+<div id="hasil-skd-screen" class="skd-page hidden">
+  <header class="skd-topbar"><div class="skd-topbar-in"><div class="skd-brand"><img class="skd-logo" src="icons/bkn.png" alt="CAT BKN"><div class="skd-brand-t"><h1>SIMULASI CAT SKD CPNS</h1><p>Hasil Simulasi</p></div></div><div class="skd-userbox"><span class="skd-hello"><i class="fa-solid fa-circle-user"></i> Hello, <b class="skd-user-nama">-</b></span>
+      <button type="button" class="skd-btn skd-btn-ghost" onclick="Skd.tampilDashboard()"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+      <button type="button" class="skd-btn skd-btn-ghost" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div></div></header>
+  <main class="skd-wrap" id="hasil-skd-isi"><p class="skd-muted">Memuat hasil...</p></main>
+  <footer class="skd-foot">Aplikasi simulasi latihan SKD CPNS &middot; bukan aplikasi resmi BKN</footer>
+</div>
+
+<!-- ======================= DASHBOARD PESERTA ======================= -->
+<div id="dash-screen" class="skd-page hidden">
+  <header class="skd-topbar"><div class="skd-topbar-in"><div class="skd-brand"><img class="skd-logo" src="icons/bkn.png" alt="CAT BKN"><div class="skd-brand-t"><h1>SIMULASI CAT SKD CPNS</h1><p>Dashboard Peserta</p></div></div><div class="skd-userbox"><span class="skd-hello"><i class="fa-solid fa-circle-user"></i> Hello, <b class="skd-user-nama">-</b></span>
+      <button type="button" class="skd-btn skd-btn-ghost" onclick="Skd.tampilDashboard()"><i class="fa-solid fa-gauge-high"></i> Dashboard</button>
+      <button type="button" class="skd-btn skd-btn-ghost" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div></div></header>
+  <main class="skd-wrap" id="dash-isi"><p class="skd-muted">Memuat...</p></main>
+  <footer class="skd-foot">Aplikasi simulasi latihan SKD CPNS &middot; bukan aplikasi resmi BKN</footer>
 </div>
 
 <!-- ======================= DETAIL JAWABAN (siswa) ======================= -->
-<div id="detail-screen" class="anbk-page anbk-legacy hidden">
-  <header class="anbk-hero"><div class="anbk-hero-in"><div class="anbk-brand"><img class="anbk-logo-tw" src="icons/tutwuri.png" alt="Tut Wuri Handayani"><img class="anbk-logo-sch" src="icons/smpn2.png" alt="SMP Negeri 2 Seririt"><div class="anbk-brand-t"><b>PUSMENDIK</b><span>APLIKASI ANBK</span></div></div><div class="anbk-user"><span class="anbk-user-nama"></span><span class="anbk-user-ico"><i class="fa-solid fa-graduation-cap"></i></span></div></div></header>
+<div id="detail-screen" class="skd-page skd-legacy hidden">
+  <header class="skd-topbar"><div class="skd-topbar-in"><div class="skd-brand"><img class="skd-logo" src="icons/bkn.png" alt="CAT BKN"><div class="skd-brand-t"><h1>SIMULASI CAT SKD CPNS</h1><p>Pusat Pengembangan Sistem Seleksi</p></div></div><div class="skd-userbox"><span class="skd-hello"><i class="fa-solid fa-circle-user"></i> Hello, <b class="skd-user-nama">-</b></span><button type="button" class="skd-btn skd-btn-ghost" onclick="Skd.tampilDashboard()"><i class="fa-solid fa-gauge-high"></i> Dashboard</button><button type="button" class="skd-btn skd-btn-ghost" onclick="Auth.logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div></div></header>
   <div class="detail-wrap">
     <div class="detail-top">
       <button type="button" class="secondary" onclick="ExamEngine.tutupDetailJawaban()"><i class="fa-solid fa-arrow-left"></i> Kembali ke Hasil</button>
     </div>
     <p class="hasil-eyebrow">Detail Jawaban</p>
     <h2 class="hasil-judul" id="detail-judul-ujian">-</h2>
-    <div class="detail-tabs hidden" id="detail-mode" style="margin-bottom:.6rem">
-      <button type="button" class="detail-tab active" id="detail-mode-soal" onclick="Survei.modeDetail('siswa','soal')">Pembahasan Soal</button>
-      <button type="button" class="detail-tab" id="detail-mode-survei" onclick="Survei.modeDetail('siswa','survei')">Pembahasan Survei</button>
-    </div>
     <p class="detail-ringkas" id="detail-ringkas-p"><span>Nilai: <strong id="detail-nilai">0</strong></span> · <span id="detail-ringkas"></span></p>
     <p class="detail-info" id="detail-info-p">Periksa jawaban Anda. Jika menurut Anda kunci jawaban keliru, catat nomor soalnya dan sampaikan ke guru.</p>
     <div class="detail-tabs" id="detail-tabs-soal">
@@ -1592,7 +1407,6 @@
       <button type="button" class="detail-tab" id="detail-tab-semua" onclick="ExamEngine.gantiFilterDetail('semua')">Semua Soal</button>
     </div>
     <div id="detail-list"></div>
-    <div id="detail-survei" class="hidden"></div>
   </div>
 </div>
 
@@ -1612,13 +1426,7 @@
 </div>
 
 <script src="config.js"></script>
-<script src="app.js?v=66"></script>
-<script src="anbk.js?v=63"></script>
-<script src="survei.js?v=11"></script>
-<script src="leaderboard.js?v=1"></script>
-<script src="leaderboard-survei.js?v=1"></script>
-<script src="analisis-materi.js?v=2"></script>
-<script src="perkembangan.js?v=1"></script>
-<script src="portal-siswa.js?v=1"></script>
+<script src="app.js?v=85"></script>
+<script src="skd.js?v=81"></script>
 </body>
 </html>

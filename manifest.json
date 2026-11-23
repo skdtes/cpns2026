@@ -1,16 +1,32 @@
 {
-  "name": "TKA SPENDASER",
-  "short_name": "TKA SPENDASER",
-  "description": "Portal ujian online berbasis komputer (CBT) — Guru & Siswa",
-  "start_url": "./index.html",
-  "scope": "./",
+  "name": "Simulasi CAT SKD CPNS",
+  "short_name": "CAT SKD",
+  "description": "Simulasi Computer Assisted Test (CAT) Seleksi Kompetensi Dasar (SKD) CPNS: TWK, TIU, TKP.",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#f4f6fb",
-  "theme_color": "#326698",
+  "background_color": "#2a4a82",
+  "theme_color": "#2a4a82",
+  "lang": "id",
   "icons": [
-    { "src": "icons/logo-test-192.png?v=5", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/logo-test-512.png?v=5", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/logo-test-maskable-512.png?v=5", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icons/icon-192.png?v=1",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png?v=1",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png?v=1",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }
