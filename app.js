@@ -195,6 +195,31 @@ function kelasAktifUjian_(u) {
   try { const arr = JSON.parse(raw); if (Array.isArray(arr)) return arr.map(normKelas_); } catch (e) { }
   return null;
 }
+// Status ujian untuk guru: 'nonaktif' (dimatikan guru) | 'terjadwal' (belum dibuka) | 'selesai' (lewat batas) | 'berlangsung'.
+// Aturannya sama dengan pengecekan token siswa (jadwal + toleransi keterlambatan).
+function statusUjian_(u) {
+  if (!u || u.status !== 'aktif') return 'nonaktif';
+  const now = new Date();
+  if (u.mulai && now < new Date(u.mulai)) return 'terjadwal';
+  const batas = u.selesai ? new Date(new Date(u.selesai).getTime() + (Number(u.toleransi_menit) || 0) * 60000) : null;
+  if (batas && now > batas) return 'selesai';
+  return 'berlangsung';
+}
+// Bila ada beberapa ujian bertoken sama (mis. data tersalin), pilih yang aktif & sedang dibuka lebih dulu,
+// bukan sekadar yang pertama ditemukan.
+function pilihUjianByToken_(list, token) {
+  const t = String(token || '').toUpperCase();
+  const cocok = (list || []).filter(u => String(u.token) === t);
+  if (cocok.length < 2) return cocok[0];
+  return cocok.find(u => statusUjian_(u) === 'berlangsung') || cocok.find(u => u.status === 'aktif') || cocok[0];
+}
+// Dua ujian "bentrok" bila kelas yang boleh mengerjakannya beririsan (null = semua kelas).
+function kelasBeririsan_(a, b) {
+  const ka = kelasAktifUjian_(a), kb = kelasAktifUjian_(b);
+  if ((ka && !ka.length) || (kb && !kb.length)) return false; // salah satu terkunci untuk semua kelas
+  if (!ka || !kb) return true;
+  return ka.some(k => kb.includes(k));
+}
 function ringkasTokenKelas_(u) {
   const raw = String((u && u.token_kelas) == null ? '' : u.token_kelas).trim();
   if (raw === '') return '<span class="badge ok">Semua kelas</span>';
@@ -203,6 +228,9 @@ function ringkasTokenKelas_(u) {
   const tampil = arr.slice(0, 4).map(k => escapeHtml_(k)).join(', ');
   return '<span class="badge ok">' + tampil + (arr.length > 4 ? ' +' + (arr.length - 4) : '') + '</span>';
 }
+// survei.js dimuat terpisah: pastikan fungsi yang dipanggil ada (file lama / cache bisa belum punya) supaya
+// bagian survei yang bermasalah TIDAK menghentikan pemuatan Bank Soal, Kelola Ujian, dll.
+function surveiAda_(fn) { return typeof Survei !== 'undefined' && Survei && typeof Survei[fn] === 'function'; }
 function kelasUnikDari_(list) {
   return [...new Set((list || []).map(x => String(x.kelas || '').trim()).filter(k => k && k !== '-'))]
     .sort((a, b) => a.localeCompare(b, 'id', { numeric: true }));
@@ -397,7 +425,7 @@ const OPSI_POLA = { none: 'Polos', blobs: 'Gumpalan lembut', aurora: 'Aurora', m
 const OPSI_SIDE = { tint: 'Warna pastel', light: 'Putih bersih', solid: 'Warna utama', dark: 'Gelap pekat', glass: 'Kaca transparan', navy: 'Gelap navy (ikut warna sekunder)' };
 
 const GAYA_PRESET = [
-  { id: 'skd', nama: 'CAT BKN', pal: { primary: '#0d6efd', secondary: '#326698', accent: '#ffc107', bg: '#f0f4f8', text: '#212529' }, info: 'Persis aplikasi SKD: header biru bertingkat, kartu putih, tombol kapsul, font Poppins', u: { r: 14, pill: 1, depth: 'soft', elev: 35, bw: 0, pat: 'none', side: 'navy', float: 0, font: 'poppins', hw: 600, skin: 'skd' } },
+  { id: 'anbk', nama: 'ANBK Pusmendik', pal: { primary: '#0d6efd', secondary: '#326698', accent: '#ffc107', bg: '#f0f4f8', text: '#212529' }, info: 'Persis aplikasi ANBK: header biru bertingkat, kartu putih, tombol kapsul, font Poppins', u: { r: 14, pill: 1, depth: 'soft', elev: 35, bw: 0, pat: 'none', side: 'navy', float: 0, font: 'poppins', hw: 600, skin: 'anbk' } },
   { id: 'softclay', nama: 'Soft Pastel', info: 'Bawaan, lembut & hangat', u: { r: 14, depth: 'soft', elev: 50, pat: 'blobs', side: 'tint', float: 1, font: 'jakarta', hw: 800 } },
   { id: 'clay', nama: 'Claymorphism', info: 'Empuk seperti tanah liat', u: { r: 26, depth: 'clay', elev: 60, grad: 25, pat: 'blobs', side: 'tint', float: 1, font: 'baloo', hw: 700 } },
   { id: 'glass', nama: 'Glassmorphism', info: 'Kaca buram di atas aurora', u: { r: 20, depth: 'soft', elev: 40, bw: 1, glass: 70, pat: 'aurora', side: 'glass', float: 1, font: 'outfit', hw: 600 } },
@@ -445,7 +473,7 @@ function normalisasiUI(u) {
   if (!OPSI_POLA[o.pat]) o.pat = 'none';
   if (!OPSI_SIDE[o.side]) o.side = 'tint';
   if (!GAYA_FONT[o.font]) o.font = 'jakarta';
-  o.skin = o.skin === 'skd' ? 'skd' : ''; // kulit khusus: 'skd' = tampilan seperti CAT BKN
+  o.skin = o.skin === 'anbk' ? 'anbk' : ''; // kulit khusus: 'anbk' = tampilan persis aplikasi ANBK (Pusmendik)
   return o;
 }
 
@@ -455,7 +483,7 @@ function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; le
 function buatGayaAcak(rnd) {
   rnd = rnd || Math.random;
   const pick = (a) => a[Math.floor(rnd() * a.length)];
-  const base = pick(GAYA_PRESET.filter(g => g.u.skin !== 'skd'));
+  const base = pick(GAYA_PRESET.filter(g => g.u.skin !== 'anbk'));
   const u = Object.assign({}, DEF_UI, base.u);
   u.r = Math.round(Warna.clamp(u.r + (rnd() - .5) * 14, 0, 36));
   u.elev = Math.round(Warna.clamp(u.elev + (rnd() - .5) * 40, 10, 95));
@@ -916,80 +944,14 @@ const TIPE_SINONIM_ = {
   pg: 'pilihan_ganda', 'pilihanganda': 'pilihan_ganda', pilihan_ganda: 'pilihan_ganda', single: 'pilihan_ganda',
   pgk: 'checkbox', 'pilihangandakompleks': 'checkbox', checkbox: 'checkbox', kompleks: 'checkbox', multi: 'checkbox',
   bs: 'benar_salah', 'benarsalah': 'benar_salah', benar_salah: 'benar_salah',
-  essay: 'uraian', uraian: 'uraian', isian: 'uraian',
-  tkp: 'tkp', kecukupan: 'kecukupan', kecukupandata: 'kecukupan', ds: 'kecukupan', twk: 'pilihan_ganda', tiu: 'pilihan_ganda'
+  essay: 'uraian', uraian: 'uraian', isian: 'uraian'
 };
 // Deteksi tipe dari teks kolom Tipe. Toleran: abaikan tag HTML, huruf besar/kecil,
 // spasi & tanda baca. Mengembalikan '' kalau tidak dikenali sama sekali.
-// Template impor soal SKD (dipakai Word & Excel).
-const SKD_TEMPLATE_HEADERS_ = ['Subtes', 'Topik', 'Tipe', 'Pertanyaan', 'Gambar', 'Opsi A', 'Opsi B', 'Opsi C', 'Opsi D', 'Opsi E', 'Kunci', 'Bobot', 'Kesulitan', 'Pembahasan'];
-const SKD_TEMPLATE_ROWS_ = [
-  ['TWK', 'Pancasila', 'PG', 'Sila kedua Pancasila adalah ....', '', 'Ketuhanan Yang Maha Esa', 'Kemanusiaan yang adil dan beradab', 'Persatuan Indonesia', 'Kerakyatan yang dipimpin oleh hikmat kebijaksanaan', 'Keadilan sosial bagi seluruh rakyat Indonesia', 'B', '5', 'Mudah', 'Sila kedua: Kemanusiaan yang adil dan beradab.'],
-  ['TIU', 'Pola Bilangan', 'PG', 'Perhatikan tabel berikut! (pada file Word: tempel tabel di sel ini) Nilai yang tepat untuk menggantikan tanda ? adalah ....', '', '12', '13', '14', '15', '16', 'C', '5', 'Sedang', 'Tulis langkah penyelesaian di sini.'],
-  ['TIU', 'Kecukupan Data', 'Kecukupan', 'Berapakah sisa target produksi? PERNYATAAN (1): Target Pabrik Y adalah 900 unit. PERNYATAAN (2): Total target kedua pabrik 1.900 unit. (Opsi A–E tidak perlu diisi)', '', '', '', '', '', '', 'C', '5', 'Sulit', 'Kedua pernyataan bersama-sama cukup.'],
-  ['TKP', 'Pelayanan Publik', 'TKP', 'Seorang warga marah karena antrean layanan panjang. Sikap Anda adalah ....', '', 'Meminta maaf dan menjelaskan alur layanan', 'Mengabaikan keluhan tersebut', 'Menyuruhnya pulang dan datang lagi', 'Membalas dengan nada tinggi', 'Mencarikan petugas lain yang lebih senior', '5,1,2,1,4', '5', 'Sedang', 'Kolom Kunci TKP berisi skor tiap opsi A..E (1–5).'],
-  ['TIU', 'Aljabar & Pecahan', 'PG', 'Nilai dari $\\frac{1}{2} + \\frac{1}{3}$ adalah ....', '', '$\\frac{2}{5}$', '$\\frac{5}{6}$', '$\\frac{1}{6}$', '$\\frac{3}{5}$', '$\\frac{2}{3}$', 'B', '5', 'Sedang', 'Samakan penyebut: $\\frac{3}{6} + \\frac{2}{6} = \\frac{5}{6}$.'],
-  ['TIU', 'Aljabar & Pecahan', 'PG', 'Jika $x^{2} - 5x + 6 = 0$, maka nilai $x$ yang memenuhi adalah ....', '', '$x = 1$ atau $x = 6$', '$x = 2$ atau $x = 3$', '$x = -2$ atau $x = -3$', '$x = 2$ atau $x = -3$', '$x = 5$ atau $x = 6$', 'B', '5', 'Sedang', '$(x-2)(x-3)=0$ sehingga $x=2$ atau $x=3$.'],
-  ['', '', '', '(tambahkan baris baru di bawah sini, ikuti pola di atas)', '', '', '', '', '', '', '', '', '', '']
-];
-// Lembar "Petunjuk Rumus" pada template Excel: cara menulis rumus matematika agar tampil rapi di layar ujian.
-const PETUNJUK_RUMUS_ROWS_ = [
-  ['PETUNJUK MENGISI TEMPLATE: RUMUS MATEMATIKA & GAMBAR OPSI', '', ''],
-  ['Apit rumus dengan tanda $ di awal dan akhir, lalu tulis dalam format LaTeX. Rumus boleh dicampur dengan kalimat biasa dalam satu sel (Pertanyaan, Opsi A–E, maupun Pembahasan).', '', ''],
-  ['Pada file Word (.docx) cukup pakai Insert > Equation; rumusnya otomatis dikonversi saat impor.', '', ''],
-  ['', '', ''],
-  ['Yang ingin ditulis', 'Ketik di sel', 'Tampil sebagai'],
-  ['Pecahan', '$\\frac{3}{4}$', 'tiga per empat (pembilang di atas, penyebut di bawah)'],
-  ['Pangkat', '$x^{2}$   $2^{10}$   $10^{-3}$', 'x kuadrat, 2 pangkat 10, 10 pangkat min 3'],
-  ['Indeks / subskrip', '$a_{n}$   $U_{10}$', 'a indeks n, U indeks 10'],
-  ['Akar kuadrat', '$\\sqrt{49}$', 'akar 49'],
-  ['Akar pangkat n', '$\\sqrt[3]{27}$', 'akar pangkat tiga dari 27'],
-  ['Kali dan bagi', '$3 \\times 4$   $8 \\div 2$', '3 × 4 dan 8 ÷ 2'],
-  ['Pertidaksamaan', '$x \\leq 5$   $x \\geq 5$   $x \\neq 0$', 'x ≤ 5, x ≥ 5, x ≠ 0'],
-  ['Persen', '$25\\%$', '25% (tanda % wajib ditulis \\%)'],
-  ['Derajat', '$90^{\\circ}$', '90 derajat'],
-  ['Huruf Yunani', '$\\pi$   $\\alpha$   $\\theta$', 'π, α, θ'],
-  ['Jumlah / sigma', '$\\sum_{i=1}^{n} i$', 'penjumlahan i dari 1 sampai n'],
-  ['Logaritma', '$\\log_{2} 8$', 'log basis 2 dari 8'],
-  ['Trigonometri', '$\\sin 30^{\\circ}$', 'sin 30 derajat'],
-  ['Teks di dalam rumus', '$\\text{kecepatan} = \\frac{s}{t}$', 'kecepatan sama dengan s per t'],
-  ['Rumus di baris sendiri (besar, rata tengah)', '$$x = \\frac{-b \\pm \\sqrt{b^{2}-4ac}}{2a}$$', 'pakai dua tanda $ di awal dan akhir'],
-  ['Campur dengan kalimat', 'Nilai dari $\\frac{1}{2} + \\frac{1}{3}$ adalah ....', 'kalimat biasa dengan pecahan di tengahnya'],
-  ['', '', ''],
-  ['Catatan penting', '', ''],
-  ['1. Jangan lupa tanda $ pembuka DAN penutup. Tanpa itu rumus tampil sebagai teks mentah.', '', ''],
-  ['2. Jangan memakai tanda $ untuk mata uang; tulis "Rp" (mis. Rp5.000).', '', ''],
-  ['3. Pangkat atau indeks lebih dari satu karakter wajib diberi kurung kurawal, mis. $x^{10}$ (bukan $x^10$).', '', ''],
-  ['4. Setelah impor, buka Bank Soal > Pratinjau untuk memastikan semua rumus tampil rapi.', '', ''],
-  ['', '', ''],
-  ['SOAL FIGURAL: OPSI BERUPA GAMBAR (tiap opsi punya gambar sendiri)', '', ''],
-  ['Kolom Gambar = gambar soal. Pada kolom Opsi A–E tulis  gambar:nama-file.png  (nama file harus sama persis). Contoh:', '', ''],
-  ['Kolom', 'Isi sel', 'Keterangan'],
-  ['Gambar', 'figural01_soal.png', 'gambar soal/stimulus'],
-  ['Opsi A', 'gambar:figural01_A.png', 'opsi A berupa gambar'],
-  ['Opsi B', 'gambar:figural01_B.png', 'dst. sampai Opsi E'],
-  ['Opsi (gambar + teks)', 'gambar:figural01_C.png | Lingkaran', 'tanda | memisahkan gambar dan keterangan teks (boleh dikosongkan)'],
-  ['Langkah impor', 'pilih SEMUA file gambar pada "Pilih Gambar Pendukung"', 'nama file di sel harus sama dengan nama file yang dipilih'],
-  ['Alamat web / Drive', 'gambar:https://drive.google.com/file/d/XXXX/view', 'bisa juga memakai tautan, tanpa memilih file'],
-  ['Excel: TEMPEL gambar langsung', 'Insert > Pictures (atau Ctrl+V) ke sel Opsi A–E / kolom Gambar', 'terbaca otomatis. Pojok KIRI-ATAS gambar harus berada di sel yang dituju; kecilkan gambar agar pas di sel (atau klik kanan > Place in Cell)'],
-  ['Excel: gambar di kolom lain', 'kolom Pertanyaan / Pembahasan', 'gambar ditaruh di akhir teks sel itu; kolom lain dilewati dengan peringatan'],
-  ['Untuk file Word (.docx)', 'tempel gambar langsung ke sel Opsi', 'gambar tertanam ikut terunggah otomatis'],
-  ['Punya SATU gambar gabungan (soal + A–E)?', 'buka alat-potong-gambar.html', 'memotongnya otomatis menjadi gambar soal dan opsi A–E']
-];
-// Lima pilihan baku soal Kecukupan Data (TIU) pada SKD CPNS.
-const OPSI_KECUKUPAN_DATA_ = [
-  'Pernyataan (1) SAJA cukup untuk menjawab pertanyaan, tetapi pernyataan (2) SAJA tidak cukup.',
-  'Pernyataan (2) SAJA cukup untuk menjawab pertanyaan, tetapi pernyataan (1) SAJA tidak cukup.',
-  'DUA pernyataan BERSAMA-SAMA cukup untuk menjawab pertanyaan, tetapi SATU pernyataan SAJA tidak cukup.',
-  'Pernyataan (1) SAJA cukup untuk menjawab pertanyaan dan pernyataan (2) SAJA cukup.',
-  'Pernyataan (1) dan pernyataan (2) tidak cukup untuk menjawab pertanyaan.'
-];
 function tipeDariTeks_(s) {
   const k = String(s || '').replace(/<[^>]*>/g, ' ').toLowerCase().replace(/[^a-z]/g, '');
   if (!k) return '';
   if (TIPE_SINONIM_[k]) return TIPE_SINONIM_[k];
-  if (/tkp|karakteristikpribadi/.test(k)) return 'tkp';
-  if (/kecukupan/.test(k)) return 'kecukupan';
   if (/kategori|pernyataan|^bsk$|^pgkk/.test(k)) return 'menjodohkan'; // PGK Kategori (Benar/Salah per pernyataan)
   if (/kompleks|checkbox|multi|pgk|jamak|lebihdarisatu/.test(k)) return 'checkbox';
   if (/jodoh|cocok|match|pasang|menjodohkan/.test(k)) return 'menjodohkan';
@@ -1064,12 +1026,6 @@ function statusKunciSoal_(soal) {
     if (valid(k, n)) return { ada: true, manual: false, label: huruf(Number(k)), indeks: [Number(k)] };
     return { ada: false, manual: false, label: '', indeks: [] };
   }
-  if (tipe === 'tkp') {
-    const n = Array.isArray(opsi) ? opsi.length : 0;
-    const ok = Array.isArray(k) && n >= 2 && k.length === n && k.every(v => Number(v) >= 1 && Number(v) <= 5);
-    if (ok) { const mx = Math.max(...k.map(Number)); return { ada: true, manual: false, label: 'Skor ' + k.join('/'), indeks: k.map((v, i) => Number(v) === mx ? i : -1).filter(i => i >= 0) }; }
-    return { ada: false, manual: false, label: '', indeks: [] };
-  }
   if (tipe === 'checkbox') {
     const n = Array.isArray(opsi) ? opsi.length : 0;
     const idx = Array.isArray(k) ? k.filter(v => valid(v, n)).map(Number) : [];
@@ -1120,134 +1076,8 @@ function kunciHeader_(h) { return String(h || '').trim().toLowerCase().replace(/
 // teks opsi mana pun) akan DITULIS PESANNYA ke sini alih-alih diam-diam
 // dianggap opsi A -- supaya guru pasti tahu & bisa memperbaikinya sebelum
 // dipakai siswa (lihat catatan panjang di hurufKunciKeIndeks_ di atas).
-// Opsi berupa GAMBAR (soal figural) pada impor Excel/Word. Isi sel Opsi dengan salah satu bentuk berikut:
-//   gambar:figural01_A.png          -> nama file yang dipilih di "Pilih Gambar Pendukung"
-//   gambar:https://.../a.png        -> alamat gambar / tautan Google Drive
-//   figural01_A.png                 -> nama file saja (bila cocok dengan file yang dipilih)
-//   gambar:figural01_A.png | teks   -> gambar + keterangan teks
-// Hasil: { teks, gambar } (format opsi bergambar yang sudah didukung layar ujian). Sel biasa dikembalikan apa adanya.
-function opsiDariSel_(raw, petaGambar, peringatan, labelSoal, huruf) {
-  const asli = String(raw == null ? '' : raw);
-  if (/<img\b/i.test(asli)) { // gambar tertanam dari Word
-    const gambarSaja = asli.match(/<img\b[^>]*>/gi) || [];
-    const sisa = asli.replace(/<img\b[^>]*>/gi, '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
-    if (!sisa && gambarSaja.length === 1) { // sel Opsi hanya berisi SATU gambar -> jadikan opsi bergambar (tampil sebagai kartu kisi)
-      const ms = gambarSaja[0].match(/\ssrc\s*=\s*["']([^"']+)["']/i);
-      if (ms && /^(https?:|data:)/i.test(ms[1])) return { teks: '', gambar: ms[1].replace(/&amp;/g, '&') };
-    }
-    return { teks: asli, gambar: '' }; // teks + gambar bercampur: biarkan sebagai teks kaya
-  }
-  const polos = asli.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().replace(/^\[(.*)\]$/, '$1').trim();
-  let ref = '', teks = '';
-  const m = polos.match(/^(?:gambar|img|image|foto)\s*[:=]\s*(\S.*?)(?:\s*\|\s*(.*))?$/i);
-  if (m) { ref = m[1].trim(); teks = (m[2] || '').trim(); }
-  else if (/^\S+\.(png|jpe?g|gif|webp|svg)$/i.test(polos) && petaGambar && petaGambar.has(polos.toLowerCase())) ref = polos;
-  else if (/^https?:\/\/\S+$/i.test(polos) && (/\.(png|jpe?g|gif|webp|svg)(\?\S*)?$/i.test(polos) || idFileDrive_(polos))) ref = polos;
-  if (!ref) return { teks: asli, gambar: '' };
-  let url = '';
-  if (/^(https?:|data:)/i.test(ref)) url = normalisasiUrlGambar(ref);
-  else if (petaGambar && petaGambar.has(ref.toLowerCase())) url = petaGambar.get(ref.toLowerCase());
-  if (!url) {
-    if (peringatan) peringatan.push(`"${labelSoal}": gambar opsi ${huruf} "${ref}" tidak ditemukan — pilih file gambar itu pada kolom "Pilih Gambar Pendukung" (nama harus sama persis), lalu impor ulang.`);
-    return { teks: asli, gambar: '' };
-  }
-  return { teks, gambar: url };
-}
-// true bila SEMUA opsi hanya berisi gambar (soal figural) -> ditampilkan sebagai kisi kartu gambar
-function opsiSemuaGambar_(opsi) {
-  if (!Array.isArray(opsi) || opsi.length < 2) return false;
-  return opsi.every(o => o && typeof o === 'object' && o.gambar && !String(o.teks || '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim());
-}
-function kelasOpsiGambar_(opsi) { return opsiSemuaGambar_(opsi) ? ' opsi-grid' : ''; }
-// ----------------------------------------------------------------------------
-// GAMBAR YANG DITEMPEL DI FILE EXCEL (.xlsx)
-// Dua bentuk gambar di Excel, keduanya dibaca:
-//  (1) gambar "mengambang" (Insert > Picture / tempel) -> menempel ke sel lewat xl/drawings; sel = pojok KIRI-ATAS gambar
-//  (2) gambar "di dalam sel" (Excel 365: klik kanan gambar > Place in Cell) -> xl/richData
-// Hasil: [{ row, col (0-based, koordinat lembar), mime, base64 }]
-// ----------------------------------------------------------------------------
-const MIME_GAMBAR_XLSX_ = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp' };
-const NS_REL_ = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-function jalurRelatif_(dasar, target) { // dasar = folder berkas yang memuat rel, mis. "xl/worksheets"
-  if (!target) return '';
-  if (target.charAt(0) === '/') return target.slice(1);
-  const bagian = (dasar ? dasar.split('/') : []).concat(target.split('/')); const out = [];
-  bagian.forEach(b => { if (b === '..') out.pop(); else if (b && b !== '.') out.push(b); });
-  return out.join('/');
-}
-function kolomDariRef_(ref) { // "C5" -> { row: 4, col: 2 }
-  const m = /^([A-Z]+)(\d+)$/i.exec(ref || ''); if (!m) return null;
-  let c = 0; m[1].toUpperCase().split('').forEach(ch => { c = c * 26 + (ch.charCodeAt(0) - 64); });
-  return { row: Number(m[2]) - 1, col: c - 1 };
-}
-async function bacaGambarXlsx_(data, hasil) { // hasil: { tidakDidukung: n } diisi bila ada gambar berformat tak didukung (EMF/WMF, dst)
-  await muatPustaka_('jszip');
-  const zip = await JSZip.loadAsync(data);
-  const teks = async (p) => { const f = zip.file(p); return f ? await f.async('string') : ''; };
-  const xml = (t) => new DOMParser().parseFromString(t, 'application/xml');
-  const semua = (node, nama) => Array.from(node.getElementsByTagNameNS('*', nama));
-  const peta = (relXml) => { const m = {}; if (relXml) semua(xml(relXml), 'Relationship').forEach(r => { m[r.getAttribute('Id')] = { target: r.getAttribute('Target'), tipe: r.getAttribute('Type') || '' }; }); return m; };
-  const wbXml = xml(await teks('xl/workbook.xml'));
-  const sheet1 = semua(wbXml, 'sheet')[0]; if (!sheet1) return [];
-  const relWb = peta(await teks('xl/_rels/workbook.xml.rels'));
-  const rid = sheet1.getAttributeNS(NS_REL_, 'id') || sheet1.getAttribute('r:id');
-  if (!relWb[rid]) return [];
-  const sheetPath = jalurRelatif_('xl', relWb[rid].target);
-  const sheetDir = sheetPath.split('/').slice(0, -1).join('/'), sheetFile = sheetPath.split('/').pop();
-  const out = []; hasil = hasil || {};
-  const ambilMedia = async (path) => {
-    const ext = (path.split('.').pop() || '').toLowerCase(); const mime = MIME_GAMBAR_XLSX_[ext];
-    const f = zip.file(path); if (!f) return null;
-    if (!mime) { hasil.tidakDidukung = (hasil.tidakDidukung || 0) + 1; return null; }
-    return { mime, base64: await f.async('base64') };
-  };
-  // (1) gambar mengambang lewat drawing
-  const relSheet = peta(await teks(sheetDir + '/_rels/' + sheetFile + '.rels'));
-  const idGambarMengambang = Object.keys(relSheet).filter(k => /\/drawing$/.test(relSheet[k].tipe));
-  for (const k of idGambarMengambang) {
-    const drawPath = jalurRelatif_(sheetDir, relSheet[k].target);
-    const drawDir = drawPath.split('/').slice(0, -1).join('/'), drawFile = drawPath.split('/').pop();
-    const dx = await teks(drawPath); if (!dx) continue;
-    const relDraw = peta(await teks(drawDir + '/_rels/' + drawFile + '.rels'));
-    const dd = xml(dx);
-    for (const jangkar of semua(dd, 'twoCellAnchor').concat(semua(dd, 'oneCellAnchor'))) {
-      const dari = semua(jangkar, 'from')[0]; const pic = semua(jangkar, 'pic')[0]; if (!dari || !pic) continue;
-      const blip = semua(pic, 'blip')[0]; if (!blip) continue;
-      const embed = blip.getAttributeNS(NS_REL_, 'embed') || blip.getAttribute('r:embed');
-      if (!relDraw[embed]) continue;
-      const col = Number((semua(dari, 'col')[0] || {}).textContent), row = Number((semua(dari, 'row')[0] || {}).textContent);
-      const media = await ambilMedia(jalurRelatif_(drawDir, relDraw[embed].target));
-      if (media && !isNaN(col) && !isNaN(row)) out.push({ row, col, mime: media.mime, base64: media.base64 });
-    }
-  }
-  // (2) gambar di dalam sel (richData): sel bertanda vm="n"
-  const sx = await teks(sheetPath);
-  const selVm = []; const reSel = /<c\b[^>]*>/g; let mm;
-  while ((mm = reSel.exec(sx))) { const tag = mm[0]; const r = /\sr="([A-Z]+\d+)"/.exec(tag), v = /\svm="(\d+)"/.exec(tag); if (r && v) selVm.push({ ref: r[1], vm: Number(v[1]) }); }
-  if (selVm.length) {
-    const meta = xml(await teks('xl/metadata.xml'));
-    const rvbIdx = []; semua(semua(meta, 'futureMetadata').find(f => f.getAttribute('name') === 'XLRICHVALUE') || meta, 'bk').forEach(bk => { const rvb = semua(bk, 'rvb')[0]; rvbIdx.push(rvb ? Number(rvb.getAttribute('i')) : null); });
-    const vmBk = semua(semua(meta, 'valueMetadata')[0] || meta, 'bk');
-    const struktur = semua(xml(await teks('xl/richData/rdrichvaluestructure.xml')), 's').map(sn => semua(sn, 'k').map(k => k.getAttribute('n')));
-    const nilaiRv = semua(xml(await teks('xl/richData/rdrichvalue.xml')), 'rv');
-    const relRvXml = xml(await teks('xl/richData/richValueRel.xml')); const daftarRel = semua(relRvXml, 'rel').map(r => r.getAttributeNS(NS_REL_, 'id') || r.getAttribute('r:id'));
-    const relRv = peta(await teks('xl/richData/_rels/richValueRel.xml.rels'));
-    for (const sv of selVm) {
-      const rc = vmBk[sv.vm - 1] && semua(vmBk[sv.vm - 1], 'rc')[0]; if (!rc) continue;
-      const i = rvbIdx[Number(rc.getAttribute('v'))]; const rv = nilaiRv[i]; if (!rv) continue;
-      const sIdx = Number(rv.getAttribute('s') || 0); const kunci = struktur[sIdx] || [];
-      const posisi = kunci.indexOf('_rvRel:LocalImageIdentifier'); if (posisi < 0) continue;
-      const relIdx = Number((semua(rv, 'v')[posisi] || {}).textContent); const rId = daftarRel[relIdx];
-      if (!relRv[rId]) continue;
-      const media = await ambilMedia(jalurRelatif_('xl/richData', relRv[rId].target)); const pos = kolomDariRef_(sv.ref);
-      if (media && pos) out.push({ row: pos.row, col: pos.col, mime: media.mime, base64: media.base64 });
-    }
-  }
-  return out;
-}
-
 function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGambar, peringatan) {
-  const ambil = (nama) => { const i = headerIdx[nama]; return i == null ? '' : amankanRumusTeks_(String(nilai[i] == null ? '' : nilai[i]).trim()); };
+  const ambil = (nama) => { const i = headerIdx[nama]; return i == null ? '' : String(nilai[i] == null ? '' : nilai[i]).trim(); };
   const pertanyaan = ambil('pertanyaan');
   if (!pertanyaan) return null;
   // Baris petunjuk bawaan template ("(tambahkan baris baru di bawah sini...)") bukan soal.
@@ -1278,22 +1108,13 @@ function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGamb
     // kolom Kategori di file (template lama berisi "Simulasi"/"IPA", yang dulu
     // membuat soal menumpuk di kategori lama). Kolom Kategori di file hanya dipakai
     // bila tidak ada mapel yang sedang dibuka.
-    // SKD: bila kolom Kategori di file berisi TWK / TIU / TKP, baris itu masuk ke kategori tsb (satu file boleh campuran
-    // TWK+TIU+TKP). Selain itu, ikut mapel yang sedang dibuka seperti biasa.
-    // Subtes (TWK/TIU/TKP) disimpan TERPISAH dari kategori -> 110 soal campuran tetap berada di SATU mapel/paket yang sedang dibuka
-    // (mis. "Simulasi 1"), namun tiap soal tetap dikenali subtesnya. Kolom "Subtes" (atau "Kategori") di file berisi TWK / TIU / TKP.
-    kategori: (function () {
-      if (kategoriDefault) return String(kategoriDefault).trim();
-      const st = skdSubtes_({ kategori: ambil('subtes') || ambil('kategori') }); if (st) return st;
-      return normalisasiKategoriSoal_(ambil('kategori') || 'Kuis');
-    })(),
-    subtes: skdSubtes_({ kategori: ambil('subtes') }) || skdSubtes_({ kategori: ambil('kategori') }) || (tipe === 'tkp' ? 'TKP' : ''),
+    kategori: kategoriDefault ? String(kategoriDefault).trim() : normalisasiKategoriSoal_(ambil('kategori') || 'Kuis'),
     subkategori: ambil('subkategori') || ambil('sub-kategori'),
     topik: ambil('topik'),
     tipe,
     pertanyaan,
     gambar,
-    bobot: Number(ambil('bobot')) || 5,
+    bobot: Number(ambil('bobot')) || 10,
     tingkat_kesulitan: (ambil('kesulitan') || ambil('tingkatkesulitan') || 'sedang').toLowerCase(),
     pembahasan: ambil('pembahasan')
   };
@@ -1337,33 +1158,10 @@ function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGamb
     item.kunci_json = JSON.stringify(kunci);
     return item;
   }
-  if (tipe === 'kecukupan') {
-    // Soal Kecukupan Data (TIU): kelima pilihan baku, guru cukup mengisi Pertanyaan (+ PERNYATAAN 1 & 2) dan Kunci (A-E).
-    tipe = 'pilihan_ganda'; item.tipe = 'pilihan_ganda';
-    item.opsi_json = JSON.stringify(OPSI_KECUKUPAN_DATA_.slice());
-    const idxK = hurufKunciKeIndeks_(ambil('kunci') || ambil('kuncijawaban'), OPSI_KECUKUPAN_DATA_);
-    if (idxK === -1 && peringatan) peringatan.push(`"${potonganPertanyaan(pertanyaan)}": kunci Kecukupan Data harus huruf A-E — soal diimpor TANPA kunci.`);
-    item.kunci_json = idxK === -1 ? '' : JSON.stringify(idxK);
-    return item;
-  }
-  if (tipe === 'tkp') {
-    // TKP: Opsi A-E + kolom Kunci berisi SKOR tiap opsi (1-5) berurutan A..E, mis. "3,5,2,1,4" atau "A=3,B=5,C=2,D=1,E=4".
-    const opsiT = ['a', 'b', 'c', 'd', 'e'].map(h => ({ h, v: ambil('opsi' + h) })).filter(x => x.v)
-      .map(x => { const o = opsiDariSel_(x.v, petaGambar, peringatan, potonganPertanyaan(pertanyaan), x.h.toUpperCase()); return o.gambar ? o : o.teks; });
-    item.opsi_json = JSON.stringify(opsiT);
-    const skorStr = ambil('kunci') || ambil('kuncijawaban') || ambil('skor');
-    const skor = (skorStr.replace(/<[^>]*>/g, '').match(/[1-5]/g) || []).map(Number);
-    if (skor.length !== opsiT.length && peringatan) peringatan.push(`"${potonganPertanyaan(pertanyaan)}": soal TKP butuh ${opsiT.length} skor (1-5) di kolom Kunci, urut A..E (terbaca ${skor.length}, mis. "3,5,2,1,4") — soal diimpor TANPA skor.`);
-    item.kunci_json = skor.length === opsiT.length ? JSON.stringify(skor) : '';
-    item.bobot = Math.max(5, ...skor);
-    return item;
-  }
   if (tipe === 'pilihan_ganda' || tipe === 'checkbox' || tipe === 'benar_salah') {
-    const opsiParsed = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(h => ({ h, v: ambil('opsi' + h) })).filter(x => x.v)
-      .map(x => opsiDariSel_(x.v, petaGambar, peringatan, potonganPertanyaan(pertanyaan), x.h.toUpperCase()));
-    const opsi = opsiParsed.map(o => o.gambar ? o : o.teks);
+    const opsi = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map(h => ambil('opsi' + h)).filter(Boolean);
     item.opsi_json = JSON.stringify(opsi.length ? opsi : ['Benar', 'Salah']);
-    const opsiUntukCocok = opsi.length ? opsiParsed.map(o => o.teks) : ['Benar', 'Salah'];
+    const opsiUntukCocok = opsi.length ? opsi : ['Benar', 'Salah'];
     const kunciStr = ambil('kunci') || ambil('kuncijawaban');
     if (tipe === 'checkbox') {
       const idx = kunciStr.split(/[,|]/).map(s => hurufKunciKeIndeks_(s, opsiUntukCocok)).filter(i => i !== -1);
@@ -1391,18 +1189,6 @@ function barisTabelJadiSoal_(headerIdx, nilai, guruId, kategoriDefault, petaGamb
 // dipakai untuk hasil XLSX.utils.sheet_to_json({header:1}) MAUPUN hasil parse
 // <table> HTML dari dokumen Word (lihat Guru.importSoalDariDocx). `peringatan`
 // (opsional, array): diteruskan ke barisTabelJadiSoal_ -- lihat penjelasan di sana.
-// Ringkasan hasil impor per subtes + peringatan untuk baris yang tak bisa dikenali subtesnya.
-function ringkasImporSkd_(soalList) {
-  const n = { TWK: 0, TIU: 0, TKP: 0 }; let lain = 0;
-  soalList.forEach(x => { const st = skdSubtes_(x); if (st) n[st]++; else lain++; });
-  const bagian = ['TWK', 'TIU', 'TKP'].filter(k => n[k]).map(k => k + ' ' + n[k]).join(' · ');
-  return { teks: bagian ? ' (' + bagian + ')' : '', lain };
-}
-function peringatanTanpaSubtes_(lain, jumlah) {
-  if (!lain || (jumlah !== undefined && lain >= jumlah)) return; // semua tanpa subtes = impor soal non-SKD biasa, tidak perlu peringatan
-  Dialog.info({ judul: 'Sebagian Soal Belum Masuk TWK/TIU/TKP', tipe: 'warning', ikon: 'fa-triangle-exclamation',
-    pesan: `**${lain} soal** belum punya subtes (kolom Subtes/Kategori kosong atau bukan TWK/TIU/TKP), jadi **tidak bisa dipilih untuk ujian SKD**.\n\nIsi kolom dengan TWK, TIU, atau TKP lalu impor ulang, atau atur subtesnya lewat tombol Ubah pada soal.` });
-}
 function barisTabelKeSoalList_(rows, guruId, kategoriDefault, petaGambar, peringatan) {
   if (!rows.length) return [];
   const headerIdx = {};
@@ -1413,14 +1199,14 @@ function barisTabelKeSoalList_(rows, guruId, kategoriDefault, petaGambar, pering
 }
 
 
-// Password otomatis meniru nomor peserta ujian CASN: 6 angka + tanda bintang (contoh "187377*").
+// Password otomatis meniru Kartu Login TKA asli: 6 angka + tanda bintang (contoh "187377*").
 function buatPasswordAcak() {
   let angka = '';
   for (let i = 0; i < 6; i++) angka += Math.floor(Math.random() * 10);
   return angka + '*';
 }
 
-// Username otomatis meniru nomor peserta ujian CASN: awalan "TP" + 13 angka (contoh "TP2206005700018").
+// Username otomatis meniru Kartu Login TKA asli: awalan "TP" + 13 angka (contoh "TP2206005700018").
 // Parameter `nama` tidak dipakai (dipertahankan supaya pemanggil lama tetap jalan). `sudahDipakai`
 // = daftar username yang ada; hasil dijamin tidak kembar (tanpa membedakan huruf besar/kecil).
 function buatUsernameDariNama(nama, sudahDipakai) {
@@ -1867,47 +1653,6 @@ const MAPEL_WARNA_LIST = ['#16a97e', '#4a5cf0', '#f5a524', '#e0433d', '#7b5cf5',
 function bacaSemuaMetaMapel_() {
   try { return JSON.parse(localStorage.getItem(MAPEL_META_KEY) || '{}'); } catch (e) { return {}; }
 }
-// Mapel diganti nama: warna/token kartu ikut pindah ke nama baru
-function pindahMetaMapel_(lama, baru) {
-  const semua = bacaSemuaMetaMapel_(); const kl = String(lama).toLowerCase(), kb = String(baru).toLowerCase();
-  if (!semua[kl]) return;
-  const m = semua[kl]; if (kl !== kb) delete semua[kl];
-  if (!semua[kb]) semua[kb] = m;
-  if (m.buatan) semua[kb].buatan = String(baru).trim();
-  try { localStorage.setItem(MAPEL_META_KEY, JSON.stringify(semua)); } catch (e) { }
-}
-
-// ---------------------------------------------------------------------------
-// LEADERBOARD: dipakai Portal Guru & dashboard siswa
-// d = { judul, total, entri:[{peringkat,nama,kelas,twk,tiu,tkp,total,lulus,durasi,saya?}], saya?, nonaktif? }; o = { siswa: bool }
-// ---------------------------------------------------------------------------
-function lbWaktu_(d) { if (d === null || d === undefined || isNaN(d)) return '–'; const m = Math.floor(d / 60), x = d % 60; return m + ' mnt ' + String(x).padStart(2, '0') + ' dtk'; }
-function lbAngka_(v) { return (v === null || v === undefined || v === '') ? '–' : String(Math.round(Number(v) * 10) / 10).replace('.', ','); }
-function renderLeaderboard_(d, o) {
-  o = o || {};
-  if (!d) return '<p class="subtitle">Data tidak tersedia.</p>';
-  if (d.nonaktif) return '<div class="lb-kosong"><i class="fa-solid fa-eye-slash"></i><p>Leaderboard sedang tidak ditampilkan oleh guru.</p></div>';
-  const e = d.entri || [];
-  if (!e.length) return '<div class="lb-kosong"><i class="fa-solid fa-trophy"></i><p>Belum ada peserta yang menyelesaikan ujian ini.</p></div>';
-  const medali = ['emas', 'perak', 'perunggu'], urutPodium = [1, 0, 2];
-  const pod = urutPodium.filter(i => e[i]).map(i => { const x = e[i];
-    return `<div class="lb-pod ${medali[i]}${x.saya ? ' saya' : ''}"><i class="fa-solid fa-crown lb-pod-ico"></i><div class="lb-pod-no">${x.peringkat}</div><div class="lb-pod-nama" title="${escapeHtml_(x.nama)}">${escapeHtml_(x.nama)}</div><div class="lb-pod-kelas">${escapeHtml_(x.kelas)}</div><div class="lb-pod-skor">${lbAngka_(x.total)}</div><div class="lb-pod-waktu"><i class="fa-regular fa-clock"></i> ${lbWaktu_(x.durasi)}</div></div>`; }).join('');
-  const baris = (x, nama) => `<tr class="${x.peringkat <= 3 ? 'lb-top lb-top' + x.peringkat : ''}${x.saya ? ' lb-saya' : ''}">
-      <td class="lb-no"><span class="lb-no-bulat">${x.peringkat}</span></td><td class="lb-nama">${escapeHtml_(nama || x.nama)}${x.saya ? ' <span class="lb-anda">Anda</span>' : ''}</td><td>${escapeHtml_(x.kelas || '')}</td>
-      <td class="lb-n">${lbAngka_(x.twk)}</td><td class="lb-n">${lbAngka_(x.tiu)}</td><td class="lb-n">${lbAngka_(x.tkp)}</td><td class="lb-n lb-total">${lbAngka_(x.total)}</td><td class="lb-w">${lbWaktu_(x.durasi)}</td>
-      <td><span class="badge ${x.lulus ? 'ok' : 'no'}">${x.lulus ? 'Memenuhi' : 'Belum'}</span></td></tr>`;
-  let rows = e.map(x => baris(x)).join('');
-  if (o.siswa && d.saya && !e.some(x => x.saya)) {
-    const nm = (typeof state !== 'undefined' && state.user && (state.user.nama || state.user.username)) || 'Anda';
-    rows += `<tr class="lb-pemisah"><td colspan="9">• • •</td></tr>` + baris(Object.assign({ saya: true, kelas: (state.user && state.user.kelas) || '' }, d.saya), nm);
-  }
-  let ringkas = `<div class="lb-ringkas"><span><i class="fa-solid fa-users"></i> ${d.total} peserta</span><span><i class="fa-solid fa-file-lines"></i> ${escapeHtml_(d.judul || '')}</span></div>`;
-  if (o.siswa) ringkas += d.saya
-    ? `<div class="lb-saya-kartu"><div class="lb-saya-no">#${d.saya.peringkat}</div><div><b>Peringkat Anda</b><br><span>dari ${d.total} peserta · skor ${lbAngka_(d.saya.total)} · ${lbWaktu_(d.saya.durasi)}</span></div></div>`
-    : '<div class="lb-saya-kartu belum"><div><b>Anda belum menyelesaikan ujian ini</b><br><span>Selesaikan ujian untuk masuk ke papan peringkat.</span></div></div>';
-  return ringkas + `<div class="lb-podium">${pod}</div><div class="table-scroll-x"><table class="ledger lb-tabel"><thead><tr><th class="lb-no">#</th><th>Nama</th><th>Kelas</th><th class="lb-n">TWK</th><th class="lb-n">TIU</th><th class="lb-n">TKP</th><th class="lb-n">Total</th><th>Waktu</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-}
-
 function ambilMetaMapel_(kategori, tandaiBuatan) {
   const semua = bacaSemuaMetaMapel_();
   const kunci = String(kategori || '').toLowerCase();
@@ -1925,6 +1670,24 @@ function ambilMetaMapel_(kategori, tandaiBuatan) {
   if (berubah) { try { localStorage.setItem(MAPEL_META_KEY, JSON.stringify(semua)); } catch (e) {} }
   return semua[kunci];
 }
+// Mapel diganti namanya: token & warna kartu ikut dipindah ke nama baru (tidak berubah).
+function pindahMetaMapel_(dari, ke) {
+  const semua = bacaSemuaMetaMapel_();
+  const kd = String(dari || '').toLowerCase(), kk = String(ke || '').toLowerCase();
+  if (!semua[kd]) return;
+  const m = semua[kd];
+  if (kd !== kk) delete semua[kd];
+  if (m.buatan) m.buatan = String(ke).trim();
+  semua[kk] = m;
+  try { localStorage.setItem(MAPEL_META_KEY, JSON.stringify(semua)); } catch (e) {}
+}
+// Gaya tombol "Ubah Nama" pada kartu Mapel (disisipkan dari sini supaya tampil walau style.css lama masih di cache).
+(function () {
+  if (document.getElementById('mapel-ubah-css')) return;
+  const st = document.createElement('style'); st.id = 'mapel-ubah-css';
+  st.textContent = '.mapel-card-ubah { right: 2.9rem !important; } .mapel-card-ubah:hover { background: color-mix(in srgb, var(--c-primary) 16%, var(--c-surface)) !important; color: var(--c-primary) !important; }';
+  document.head.appendChild(st);
+})();
 function hapusMapelBuatan_(kategori) {
   const semua = bacaSemuaMetaMapel_();
   const kunci = String(kategori || '').toLowerCase();
@@ -1998,129 +1761,6 @@ function toast(msg, jenis) {
 // diklik, dialog menumpuk). Dengan disuntik dari app.js, dialog dijamin tampil di tengah layar & menutupi halaman.
 // ----------------------------------------------------------------------------
 const VERSI_APLIKASI = '43';
-const CSS_LEADERBOARD = `
-/* ===== Ubah nama mapel ===== */
-.mapel-card-ubah { right: 2.8rem; }
-.mapel-card-subtes { display: flex; flex-wrap: wrap; gap: .3rem; margin: .1rem 0 .3rem; }
-.mapel-card-subtes span { font-size: .72rem; font-weight: 700; padding: .1rem .5rem; border-radius: 999px; background: var(--c-bg); border: 1px solid var(--c-line); color: var(--c-text); }
-.badge-subtes { display: inline-block; padding: 0 .4rem; border-radius: 5px; background: var(--c-bg); border: 1px solid var(--c-line); font-size: .72rem; }
-/* ===== Leaderboard ===== */
-.lb-toolbar { align-items: center; gap: .8rem; }
-.lb-filter { display: flex; flex-wrap: wrap; gap: .5rem; flex: 1; }
-.lb-filter select { max-width: 230px; }
-.lb-switch { display: inline-flex; align-items: center; gap: .45rem; font-weight: 500; font-size: .85rem; white-space: nowrap; }
-.lb-switch input { width: auto; margin: 0; }
-.lb-ringkas { display: flex; flex-wrap: wrap; gap: .5rem 1.2rem; color: var(--c-muted); font-size: .85rem; margin: .2rem 0 .9rem; }
-.lb-ringkas i { margin-right: .3rem; }
-.lb-podium { display: flex; justify-content: center; align-items: flex-end; gap: .9rem; margin: .4rem 0 1.4rem; flex-wrap: wrap; }
-.lb-pod { position: relative; width: 190px; padding: 1.1rem .8rem .9rem; text-align: center; border-radius: 14px; border: 1px solid var(--c-line); background: var(--c-surface); box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-.lb-pod.emas { order: 2; padding-top: 1.6rem; padding-bottom: 1.3rem; border-color: #e9b44c; background: linear-gradient(180deg, #fff7e0, var(--c-surface) 70%); }
-.lb-pod.perak { order: 1; border-color: #b9c0c9; background: linear-gradient(180deg, #f2f4f7, var(--c-surface) 70%); }
-.lb-pod.perunggu { order: 3; border-color: #d39a6a; background: linear-gradient(180deg, #fbefe4, var(--c-surface) 70%); }
-.lb-pod.saya { box-shadow: 0 0 0 2px var(--c-secondary), 0 2px 8px rgba(0,0,0,.06); }
-.lb-pod-ico { font-size: 1.5rem; }
-.lb-pod.emas .lb-pod-ico { color: #e0a100; font-size: 1.9rem; } .lb-pod.perak .lb-pod-ico { color: #9aa3ae; } .lb-pod.perunggu .lb-pod-ico { color: #c4814d; }
-.lb-pod-no { position: absolute; top: .55rem; left: .7rem; font-weight: 700; font-size: .8rem; color: var(--c-muted); }
-.lb-pod-nama { font-weight: 700; margin-top: .3rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lb-pod-kelas { font-size: .78rem; color: var(--c-muted); }
-.lb-pod-skor { font-size: 1.9rem; font-weight: 800; line-height: 1.2; margin-top: .3rem; font-variant-numeric: tabular-nums; }
-.lb-pod-waktu { font-size: .76rem; color: var(--c-muted); }
-.lb-tabel th.lb-n, .lb-tabel td.lb-n { text-align: center; font-variant-numeric: tabular-nums; }
-.lb-tabel td.lb-total { font-weight: 800; }
-.lb-tabel td.lb-w { white-space: nowrap; font-size: .8rem; color: var(--c-muted); }
-.lb-tabel .lb-no { width: 3.2rem; text-align: center; }
-.lb-no-bulat { display: inline-flex; align-items: center; justify-content: center; min-width: 1.9rem; height: 1.9rem; border-radius: 50%; font-weight: 700; font-size: .82rem; background: var(--c-bg); border: 1px solid var(--c-line); }
-.lb-top1 .lb-no-bulat { background: #f6c748; border-color: #e0a100; color: #4a3600; } .lb-top2 .lb-no-bulat { background: #d5dae1; border-color: #aab2bd; color: #2f3640; } .lb-top3 .lb-no-bulat { background: #e3b48c; border-color: #c4814d; color: #4a2a10; }
-.lb-tabel tr.lb-saya td { background: color-mix(in srgb, var(--c-secondary) 14%, var(--c-surface)); font-weight: 600; }
-.lb-anda { display: inline-block; margin-left: .35rem; padding: .05rem .5rem; border-radius: 999px; background: var(--c-secondary); color: #fff; font-size: .68rem; font-weight: 700; vertical-align: middle; }
-.lb-tabel tr.lb-pemisah td { text-align: center; color: var(--c-muted); letter-spacing: .3em; padding: .2rem; }
-.lb-saya-kartu { display: flex; align-items: center; gap: 1rem; padding: .8rem 1.1rem; margin-bottom: .9rem; border-radius: 12px; background: color-mix(in srgb, var(--c-secondary) 14%, var(--c-surface)); border: 1px solid var(--c-secondary); }
-.lb-saya-kartu span { font-size: .85rem; color: var(--c-muted); }
-.lb-saya-no { font-size: 1.8rem; font-weight: 800; min-width: 3.6rem; text-align: center; }
-.lb-saya-kartu.belum { background: var(--c-bg); border-color: var(--c-line); }
-.lb-kosong { text-align: center; padding: 2.2rem 1rem; color: var(--c-muted); } .lb-kosong i { font-size: 2.2rem; opacity: .5; } .lb-kosong p { margin: .6rem 0 0; }
-@media (max-width: 640px) { .lb-pod { width: 100%; order: 0 !important; } .lb-podium { flex-direction: column; align-items: stretch; } .lb-filter select { max-width: none; flex: 1 1 45%; } }
-`;
-const CSS_KELOLA = `
-/* ===== Kelola Ujian: daftar yang rapi ===== */
-.ujian-toolbar { align-items: center; padding-bottom: 1rem; margin-bottom: .4rem; border-bottom: 1px solid var(--c-line); }
-.toolbar-judul h3 { margin: 0; font-size: 1.08rem; font-weight: 600; }
-.toolbar-sub { display: block; margin-top: .15rem; font-size: .8rem; color: var(--c-muted); }
-.ujian-toolbar .toolbar-actions { align-items: center; gap: .6rem; flex-wrap: nowrap; }
-.ujian-toolbar .toolbar-actions > button { white-space: nowrap; }
-.ujian-toolbar .segar-info { margin-right: .2rem; }
-table.tabel-ujian { border-collapse: separate; border-spacing: 0; }
-table.tabel-ujian th { white-space: nowrap; padding: .75rem .8rem; font-size: .72rem; letter-spacing: .06em; vertical-align: bottom; }
-table.tabel-ujian td { padding: 1rem .8rem; vertical-align: top; }
-table.tabel-ujian th.tengah, table.tabel-ujian td.tengah { text-align: center; }
-table.tabel-ujian .sel-judul { min-width: 170px; }
-table.tabel-ujian .sel-judul strong { display: block; font-size: .95rem; line-height: 1.3; }
-table.tabel-ujian .judul-meta { display: block; margin-top: .25rem; font-size: .76rem; color: var(--c-muted); }
-table.tabel-ujian .kom-sel { min-width: 190px; font-size: .8rem; }
-table.tabel-ujian .kom-baris { display: flex; justify-content: space-between; gap: 1rem; padding: .12rem 0; white-space: nowrap; line-height: 1.45; }
-table.tabel-ujian .kom-baris > b { font-weight: 700; letter-spacing: .02em; }
-table.tabel-ujian .kom-total { display: flex; justify-content: space-between; gap: 1rem; margin-top: .3rem; padding-top: .35rem; border-top: 1px dashed var(--c-line); font-weight: 700; }
-.token-sel { display: inline-flex; align-items: center; gap: .35rem; padding: .2rem .25rem .2rem .65rem; border: 1px solid var(--c-line); border-radius: 8px; background: var(--c-bg); }
-.token-kode { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .98rem; font-weight: 700; letter-spacing: .12em; background: none; padding: 0; }
-.token-salin { all: unset; cursor: pointer; width: 1.9rem; height: 1.9rem; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--c-muted); }
-.token-salin:hover { background: var(--c-hover); color: var(--c-text); }
-table.tabel-ujian .sel-token-kelas { font-size: .8rem; max-width: 190px; }
-table.tabel-ujian .angka-besar { font-size: 1.15rem; font-weight: 700; display: block; line-height: 1.2; }
-table.tabel-ujian .satuan { font-size: .74rem; color: var(--c-muted); }
-table.tabel-ujian .sel-jadwal { font-size: .8rem; white-space: nowrap; }
-table.tabel-ujian .sel-jadwal > div { line-height: 1.5; }
-table.tabel-ujian .sel-jadwal > div > span { display: inline-block; width: 3.4rem; color: var(--c-muted); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
-.aksi-ujian { display: flex; gap: .4rem; justify-content: flex-end; }
-.aksi-ujian > button { white-space: nowrap; display: inline-flex; align-items: center; gap: .35rem; }
-table.tabel-ujian .aksi-ujian-sel { text-align: right; }
-table.tabel-ujian.ledger-kartu .aksi-ujian { flex-wrap: wrap; justify-content: flex-start; }
-table.tabel-ujian.ledger-kartu .sel-jadwal { white-space: normal; }
-@media (max-width: 760px) { .ujian-toolbar .toolbar-actions { flex-wrap: wrap; } .toolbar-judul { width: 100%; } }
-`;
-const CSS_RUMUS = `
-/* ===== Rumus matematika (KaTeX) di layar ujian, pratinjau, hasil & pembahasan ===== */
-.question-card .katex, .skd-pertanyaan .katex, .skd-opsi-t .katex, .dj-card .katex, .dj-pembahasan .katex { font-size: 1.12em; }
-.katex-display { margin: .7em 0; padding: .15em 0; overflow-x: auto; overflow-y: hidden; max-width: 100%; -webkit-overflow-scrolling: touch; }
-.katex-display > .katex { white-space: nowrap; max-width: 100%; }
-.skd-opsi-t, .skd-pertanyaan, .pertanyaan { overflow-wrap: anywhere; }
-.skd-opsi-t .katex-display { margin: .3em 0; text-align: left; }
-.skd-opsi-t .katex-display > .katex { text-align: left; }
-.ada-pecahan { line-height: 1.95; }
-.katex .mfrac .frac-line { border-bottom-width: .06em; }
-.katex-error { color: #b91c1c; font-family: monospace; font-size: .9em; }
-@media (max-width: 640px) { .katex-display { margin: .5em 0; } .skd-pertanyaan .katex, .question-card .katex { font-size: 1.05em; } }
-/* ===== Keterangan jumlah soal ujian ===== */
-.skd-kurang-info { margin: 0 0 .5rem; font-size: .84rem; }
-.skd-kurang-banner { padding: .55rem .8rem; border-radius: 8px; margin-bottom: .45rem; line-height: 1.45; }
-.skd-kurang-banner.warn { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
-.skd-kurang-banner.ok { background: #f0fdf4; color: #166534; border: 1px solid #86efac; }
-.skd-kurang-tbl { width: 100%; border-collapse: collapse; font-size: .82rem; }
-.skd-kurang-tbl th, .skd-kurang-tbl td { padding: .25rem .5rem; border-bottom: 1px solid var(--c-line); text-align: left; }
-.skd-kurang-tbl tr.kurang td { color: #b91c1c; font-weight: 600; }
-.skd-kurang-tbl tr.sedang td { color: #b45309; font-weight: 600; }
-.skd-kurang-tbl tr.ok td:last-child { color: #15803d; }
-.skd-kurang-tbl tr.lebih td:last-child { color: #1d4ed8; }
-.kom-baris { white-space: nowrap; line-height: 1.5; }
-.kom-baris.ok { color: #15803d; }
-.kom-baris.kurang, .kom-total.kurang { color: #b91c1c; font-weight: 600; white-space: normal; }
-.kom-total { margin-top: .2rem; padding-top: .2rem; border-top: 1px dashed var(--c-line); font-weight: 600; }
-.kom-total.ok { color: #15803d; }
-/* ===== Dialog rumus ===== */
-.rumus-bg { z-index: 1300; }
-.rumus-modal { max-width: 720px; }
-.rumus-palet { display: flex; flex-direction: column; gap: .35rem; margin-bottom: .7rem; }
-.rumus-grup { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }
-.rumus-grup > span { font-size: .72rem; font-weight: 600; color: var(--c-muted); min-width: 92px; text-transform: uppercase; letter-spacing: .03em; }
-.rumus-chip { background: var(--c-surface); color: var(--c-text); border: 1px solid var(--c-line); padding: .28rem .6rem; min-width: 2.2rem; font-size: .95rem; line-height: 1.2; border-radius: 6px; cursor: pointer; }
-.rumus-chip:hover { border-color: var(--c-secondary); background: var(--c-bg); }
-.rumus-lbl { display: block; font-size: .8rem; font-weight: 600; margin: .5rem 0 .25rem; }
-#rumus-tex { width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95rem; resize: vertical; }
-.rumus-blok { display: flex; align-items: center; gap: .45rem; font-size: .82rem; font-weight: 400; margin-top: .4rem; }
-.rumus-blok input { width: auto; margin: 0; }
-.rumus-pratinjau { min-height: 3.2rem; padding: .7rem .9rem; border: 1px dashed var(--c-line); border-radius: 8px; background: var(--c-bg); overflow-x: auto; font-size: 1.15rem; }
-.rumus-kosong { color: var(--c-muted); font-size: .85rem; }
-.rumus-galat { color: #b91c1c; font-size: .8rem; min-height: 1.1rem; margin-top: .3rem; }
-`;
 const CSS_SEGAR = `
 /* Tombol "Segarkan" di halaman portal guru (Rekap Nilai, Log Pelanggaran, dll.) */
 .btn-segarkan { display: inline-flex; align-items: center; gap: .45rem; white-space: nowrap; }
@@ -2307,7 +1947,7 @@ function injectGayaDialog_() {
   if (document.getElementById('dlg-gaya')) return;
   const el = document.createElement('style');
   el.id = 'dlg-gaya';
-  el.textContent = CSS_DIALOG + CSS_SEGAR + CSS_RUMUS + CSS_KELOLA + CSS_LEADERBOARD + CSS_FSBUKTI + CSS_SHEET + CSS_KAMERA + CSS_GALERI + CSS_KUNCI;
+  el.textContent = CSS_DIALOG + CSS_SEGAR + CSS_FSBUKTI + CSS_SHEET + CSS_KAMERA + CSS_GALERI + CSS_KUNCI;
   document.head.appendChild(el);
 }
 injectGayaDialog_();
@@ -2586,7 +2226,7 @@ function teksSoalHtml(str) { return escapeHtml_(str).replace(/\n/g, '<br>'); }
 // (sanitasi) sebelum disimpan maupun ditampilkan, hanya tag/atribut pemformatan
 // teks dasar yang diizinkan — supaya aman dari HTML/skrip yang tidak diinginkan.
 // ----------------------------------------------------------------------------
-const RT_TAG_DIIZINKAN = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, STRIKE: 1, SPAN: 1, BR: 1, DIV: 1, P: 1, FONT: 1, SUB: 1, SUP: 1, IMG: 1, UL: 1, OL: 1, LI: 1, TABLE: 1, THEAD: 1, TBODY: 1, TR: 1, TD: 1, TH: 1 };
+const RT_TAG_DIIZINKAN = { B: 1, STRONG: 1, I: 1, EM: 1, U: 1, S: 1, STRIKE: 1, SPAN: 1, BR: 1, DIV: 1, P: 1, FONT: 1, SUB: 1, SUP: 1, IMG: 1, UL: 1, OL: 1, LI: 1 };
 const RT_STYLE_DIIZINKAN = /^(color|background-color|text-decoration|font-weight|font-style|font-family|font-size)\s*:/i;
 // src gambar inline (disisipkan lewat tombol 🖼 di toolbar) boleh berupa data:
 // URL (Mode Lokal) atau http(s) URL (Mode Server/Drive) -- selain itu dibuang.
@@ -2610,8 +2250,6 @@ function sanitasiHtmlKaya_(html) {
             const aman = attr.value.split(';').map(s => s.trim())
               .filter(s => RT_STYLE_DIIZINKAN.test(s)).join('; ');
             if (aman) anak.setAttribute('style', aman); else anak.removeAttribute('style');
-          } else if ((attr.name === 'colspan' || attr.name === 'rowspan') && (anak.tagName === 'TD' || anak.tagName === 'TH') && /^[1-9]\d?$/.test(attr.value)) {
-            // sel tabel boleh menggabung kolom/baris (soal TIU bertabel)
           } else if (attr.name === 'color' && anak.tagName === 'FONT') {
             // biarkan atribut color pada <font> (dihasilkan execCommand foreColor di sebagian browser)
           } else if (attr.name === 'src' && anak.tagName === 'IMG') {
@@ -2682,76 +2320,12 @@ function richTeksKosong_(html) {
   return !tpl.content.textContent.trim();
 }
 
-// ----------------------------------------------------------------------------
-// RUMUS MATEMATIKA (KaTeX)
-// Penanda yang dikenali di soal/opsi/pembahasan:
-//   $ ... $   atau  \( ... \)   -> rumus di tengah kalimat
-//   $$ ... $$ atau  \[ ... \]   -> rumus di baris sendiri (besar, rata tengah)
-// KaTeX dibundel lokal (vendor/katex). Bila skrip KaTeX belum selesai dimuat saat soal tampil,
-// elemen dicatat lalu dirender otomatis begitu KaTeX siap (dulu rumus tertinggal sbg teks mentah "$...$").
-// ----------------------------------------------------------------------------
-const OPSI_RUMUS_ = {
-  delimiters: [
-    { left: '$$', right: '$$', display: true },
-    { left: '\\[', right: '\\]', display: true },
-    { left: '\\(', right: '\\)', display: false },
-    { left: '$', right: '$', display: false }
-  ],
-  throwOnError: false,
-  strict: 'ignore'
-};
-// Pecahan yang diketik sebagai teks biasa ("1/15", "2/30") otomatis ditampilkan sebagai pecahan asli (\dfrac) saat soal/pembahasan
-// ditampilkan; data soal di Bank Soal TIDAK diubah. Dikecualikan: tanggal/nomor berantai (17/08/1945), nomor peraturan (No. 12/2020),
-// angka >3 digit, satuan (km/jam) dan bagian yang sudah berada di dalam $...$. Matikan dengan PECAHAN_OTOMATIS_ = false.
-const PECAHAN_OTOMATIS_ = true;
-const RE_PECAHAN_TEKS_ = /(?<![\w/.,:\-]|(?:No|Nomor|Pasal|UU|PP|Perpres|Perda|Permen|Ayat|Tahun|Tanggal|Tgl)\.?\s*)(\d{1,3})\/(\d{1,3})(?![\w/]|[.,]\d)/gi;
-const RE_BAGI_RUMUS_ = new RegExp('(' + '\\$\\$[\\s\\S]+?\\$\\$|\\\\\\[[\\s\\S]+?\\\\\\]|\\\\\\([\\s\\S]+?\\\\\\)|\\$(?!\\s)[^$\\n]+?\\$' + ')');
-function pecahanTeksKeRumus_(teks) {
-  return teks.split(RE_BAGI_RUMUS_).map((bag, i) => i % 2 === 1 ? bag : bag.replace(RE_PECAHAN_TEKS_, (m, a, b) => '$\\dfrac{' + a + '}{' + b + '}$')).join('');
-}
-function siapkanPecahan_(el) {
-  if (!PECAHAN_OTOMATIS_ || !el || !el.ownerDocument) return;
-  const dok = el.ownerDocument; const tw = dok.createTreeWalker(el, 4 /* SHOW_TEXT */); const daftar = [];
-  for (let n = tw.nextNode(); n; n = tw.nextNode()) {
-    if (n.nodeValue.indexOf('/') < 0) continue;
-    const ib = n.parentElement; if (!ib || ib.closest('.katex, .katex-display, script, style, textarea, code, pre, option, [contenteditable="true"], .rich-editable')) continue;
-    daftar.push(n);
-  }
-  daftar.forEach(n => {
-    const baru = pecahanTeksKeRumus_(n.nodeValue);
-    if (baru !== n.nodeValue) { n.nodeValue = baru; if (n.parentElement) n.parentElement.classList.add('ada-pecahan'); }
-  });
-}
-const _matikaMenunggu_ = new Set();
-let _matikaTimer_ = null;
-function katexSiap_() { return !!(window.katex && window.renderMathInElement); }
 function renderMatika(el) {
-  if (!el) return;
-  if (katexSiap_()) {
-    try { siapkanPecahan_(el); renderMathInElement(el, OPSI_RUMUS_); } catch (e) { /* abaikan error render */ }
-    return;
+  if (window.renderMathInElement) {
+    try {
+      renderMathInElement(el, { delimiters: [{ left: '$', right: '$', display: false }], throwOnError: false });
+    } catch (e) { /* abaikan error render */ }
   }
-  _matikaMenunggu_.add(el);
-  if (_matikaTimer_) return;
-  let n = 0;
-  _matikaTimer_ = setInterval(() => {
-    n++;
-    if (katexSiap_()) {
-      clearInterval(_matikaTimer_); _matikaTimer_ = null;
-      const daftar = Array.from(_matikaMenunggu_); _matikaMenunggu_.clear();
-      daftar.forEach(e => { if (e.isConnected) { try { siapkanPecahan_(e); renderMathInElement(e, OPSI_RUMUS_); } catch (x) { } } });
-    } else if (n > 120) { clearInterval(_matikaTimer_); _matikaTimer_ = null; _matikaMenunggu_.clear(); } // menyerah setelah ~30 dtk
-  }, 250);
-}
-
-// Rumus yang diketik di Excel/teks biasa: tanda < dan > di DALAM rumus (mis. $a<b$) dapat disangka tag HTML oleh
-// pendeteksi "teks kaya" sehingga rumusnya rusak. Di dalam segmen rumus, keduanya diganti \lt dan \gt (setara di KaTeX).
-const RE_SEGMEN_RUMUS_ = /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|\$(?!\s)[^$\n]+?\$/g;
-const RE_TAG_HTML_ADA_ = /<\/?(?:b|i|u|s|strong|em|br|span|div|p|font|sub|sup|img|ul|ol|li|table|thead|tbody|tr|td|th|strike)\b[^<>]*>/i;
-function amankanRumusTeks_(str) {
-  const t = String(str == null ? '' : str);
-  if (t.indexOf('<') < 0 && t.indexOf('>') < 0) return t;
-  return t.replace(RE_SEGMEN_RUMUS_, seg => RE_TAG_HTML_ADA_.test(seg) ? seg : seg.replace(/</g, '\\lt ').replace(/>/g, '\\gt '));
 }
 
 // Membangun HTML 1 soal (pertanyaan + gambar + opsi/kotak jawaban sesuai
@@ -2765,7 +2339,7 @@ function amankanRumusTeks_(str) {
 // mewakili jawaban siswa mana pun).
 function renderKontenSoal(soal, opts) {
   opts = opts || {};
-  if (opts.skd && window.Skd) return Skd.renderSoal(soal, opts);
+  if (opts.anbk && window.Anbk) return Anbk.renderSoal(soal, opts);
   const interaktif = opts.interaktif !== false;
   const jawaban = opts.jawaban || {};
   const tandaiKunci = Array.isArray(opts.tandaiKunci) ? opts.tandaiKunci : [];
@@ -2784,7 +2358,7 @@ function renderKontenSoal(soal, opts) {
   const opsiObj = (o) => (o && typeof o === 'object') ? o : { teks: o || '', gambar: '' };
 
   if (soal.tipe === 'pilihan_ganda' || soal.tipe === 'benar_salah') {
-    html += '<div class="opsi-list' + kelasOpsiGambar_(soal.opsi) + '">' + (soal.opsi || []).map((o, i) => {
+    html += '<div class="opsi-list">' + (soal.opsi || []).map((o, i) => {
       const item = opsiObj(o);
       const selected = jawaban[soal.id] === i;
       const onclick = interaktif ? ` onclick="ExamEngine.pilihJawabanTunggal('${soal.id}', ${i})"` : '';
@@ -2795,7 +2369,7 @@ function renderKontenSoal(soal, opts) {
     }).join('') + '</div>';
   } else if (soal.tipe === 'checkbox') {
     const dipilih = jawaban[soal.id] || [];
-    html += '<div class="opsi-list' + kelasOpsiGambar_(soal.opsi) + '">' + (soal.opsi || []).map((o, i) => {
+    html += '<div class="opsi-list">' + (soal.opsi || []).map((o, i) => {
       const item = opsiObj(o);
       const selected = dipilih.includes(i);
       const onclick = interaktif ? ` onclick="ExamEngine.toggleJawabanGanda('${soal.id}', ${i})"` : '';
@@ -2834,6 +2408,138 @@ function renderKontenSoal(soal, opts) {
 // supaya operasi paling sering (autosave dsb.) TIDAK memerlukan retry ini
 // dalam kondisi normal karena tidak lagi berebut kunci server.
 const MAKS_PERCOBAAN_API = 3;
+// ---- inti Portal Siswa (salinan dari Code.gs agar Mode Lokal sama persis) ----
+// ----------------------------------------------------------------------------
+// PORTAL SISWA — riwayat simulasi + leaderboard (dipakai Dashboard, Simulasi Selesai, Grafik
+// Perkembangan, Riwayat, Leaderboard di Portal Siswa).
+// Kirim siswaId. Hasil: { riwayat:[...sesi milik siswa...], lb:{ tes, kelas, data } }.
+// * riwayat : semua sesi SELESAI/DIBLOKIR milik siswa + rata-rata kelas untuk ujian itu (rataKelas).
+// * lb      : Leaderboard TOP 10 + peringkat siswa itu sendiri (nilai siswa lain TIDAK dikirim
+//             selain top 10), per "Tes 1/2/..." dan "Rata-rata Seluruh Tes", untuk "kelas" & "semua".
+// Aturan pengelompokan tes sama dengan menu Leaderboard guru (judul memuat Literasi/Numerasi).
+// Nilai dipakai = nilai TERTINGGI bila satu ujian dikerjakan beberapa kali; siswa diblokir tak ikut.
+// ----------------------------------------------------------------------------
+function ptNorm_(t) { return String(t == null ? '' : t).trim().toLowerCase().replace(/\s+/g, ' '); }
+function ptJenisTeks_(txt) {
+  var t = ptNorm_(txt), a = t.indexOf('literasi'), b = t.indexOf('numerasi');
+  if (a < 0 && b < 0) return '';
+  if (a >= 0 && b >= 0) return a < b ? 'literasi' : 'numerasi';
+  return a >= 0 ? 'literasi' : 'numerasi';
+}
+function ptJenisUjian_(u) { return ptJenisTeks_(u.judul) || ptJenisTeks_(u.kategori); }
+function ptLabelTes_(judul) {
+  var t = String(judul || '').replace(/literasi|numerasi/gi, ' ');
+  t = t.replace(/\(\s*\)|\[\s*\]/g, ' ').replace(/\s+/g, ' ').trim();
+  t = t.replace(/^[\s\-–—:|\/,_.]+|[\s\-–—:|\/,_.]+$/g, '').trim();
+  return t || 'Tes';
+}
+function ptUrutTes_(list) {
+  var semuaAngka = list.every(function (t) { return /\d/.test(t.label); });
+  var angka = function (t) { var m = String(t.label).match(/\d+/); return m ? parseFloat(m[0]) : 0; };
+  list.sort(function (a, b) {
+    if (semuaAngka) return (angka(a) - angka(b)) || String(a.label).localeCompare(String(b.label));
+    return (a.waktu - b.waktu) || String(a.label).localeCompare(String(b.label));
+  });
+  return list;
+}
+function ptRata_(arr) { return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : null; }
+function ptR2_(n) { return Math.round(Number(n) * 100) / 100; }
+
+// sesiFinal: sesi selesai (bukan diblokir) bernilai angka; hasil: { tes:[{key,label}], data:{scope:{mode:{total,saya,top}}} }
+function ptHitungLeaderboard_(sesiFinal, ujianMap, siswaMap, sayaId) {
+  var terbaik = {}; // siswaId|ujianId -> nilai tertinggi
+  sesiFinal.forEach(function (s) {
+    var k = s.siswa_id + '|' + s.ujian_id, n = Number(s.nilai);
+    if (terbaik[k] === undefined || n > terbaik[k]) terbaik[k] = n;
+  });
+  var tesPeta = {}, skor = {}; // skor[siswaId][tesKey] = {literasi, numerasi}
+  Object.keys(terbaik).forEach(function (k) {
+    var p = k.split('|'), u = ujianMap[p[1]]; if (!u) return;
+    var jenis = ptJenisUjian_(u); if (!jenis) return;
+    var label = ptLabelTes_(u.judul), key = 'a:' + ptNorm_(label);
+    var waktu = Date.parse(u.mulai) || 0;
+    if (!tesPeta[key]) tesPeta[key] = { key: key, label: label, waktu: waktu };
+    else if (waktu && (!tesPeta[key].waktu || waktu < tesPeta[key].waktu)) tesPeta[key].waktu = waktu;
+    var sw = skor[p[0]] = skor[p[0]] || {}, slot = sw[key] = sw[key] || {};
+    if (slot[jenis] === undefined || terbaik[k] > slot[jenis]) slot[jenis] = terbaik[k];
+  });
+  var tesList = ptUrutTes_(Object.keys(tesPeta).map(function (k) { return tesPeta[k]; }));
+  var saya = siswaMap[sayaId] || {};
+  var kelasSaya = ptNorm_(saya.kelas);
+  var hasil = { tes: tesList.map(function (t) { return { key: t.key, label: t.label }; }), kelas: saya.kelas || '', data: {} };
+  var mode = ['semua'].concat(tesList.map(function (t) { return t.key; }));
+
+  var barisUntuk = function (m) {
+    var rows = [];
+    Object.keys(skor).forEach(function (sid) {
+      var info = siswaMap[sid]; if (!info) return;
+      var lit = null, num = null;
+      if (m === 'semua') {
+        var L = [], N = [];
+        tesList.forEach(function (t) { var x = skor[sid][t.key]; if (!x) return; if (x.literasi !== undefined) L.push(x.literasi); if (x.numerasi !== undefined) N.push(x.numerasi); });
+        lit = ptRata_(L); num = ptRata_(N);
+      } else {
+        var x = skor[sid][m] || {};
+        lit = x.literasi !== undefined ? x.literasi : null; num = x.numerasi !== undefined ? x.numerasi : null;
+      }
+      if (lit === null && num === null) return;
+      var ada = []; if (lit !== null) ada.push(lit); if (num !== null) ada.push(num);
+      rows.push({ id: sid, nama: info.nama || '-', kelas: info.kelas || '-', lit: lit, num: num, akhir: ptRata_(ada), lengkap: lit !== null && num !== null });
+    });
+    rows.sort(function (a, b) {
+      return (Number(b.lengkap) - Number(a.lengkap)) || (ptR2_(b.akhir) - ptR2_(a.akhir)) || String(a.nama).localeCompare(String(b.nama));
+    });
+    var prev = null;
+    rows.forEach(function (r, i) { r.rank = (prev && prev.lengkap === r.lengkap && ptR2_(prev.akhir) === ptR2_(r.akhir)) ? prev.rank : i + 1; prev = r; });
+    return rows;
+  };
+  var ringkas = function (r) { return { rank: r.rank, nama: r.nama, kelas: r.kelas, lit: r.lit === null ? null : ptR2_(r.lit), num: r.num === null ? null : ptR2_(r.num), akhir: ptR2_(r.akhir), lengkap: r.lengkap, saya: String(r.id) === String(sayaId) }; };
+  ['kelas', 'semua'].forEach(function (scope) {
+    hasil.data[scope] = {};
+    mode.forEach(function (m) {
+      var rows = barisUntuk(m);
+      if (scope === 'kelas') rows = rows.filter(function (r) { return ptNorm_(r.kelas) === kelasSaya; }).map(function (r) { return r; });
+      if (scope === 'kelas') { // peringkat ulang di dalam kelas
+        var prev = null; rows.forEach(function (r, i) { r.rank = (prev && prev.lengkap === r.lengkap && ptR2_(prev.akhir) === ptR2_(r.akhir)) ? prev.rank : i + 1; prev = r; });
+      }
+      var me = rows.filter(function (r) { return String(r.id) === String(sayaId); })[0];
+      hasil.data[scope][m] = { total: rows.length, saya: me ? ringkas(me) : null, top: rows.slice(0, 10).map(ringkas) };
+    });
+  });
+  return hasil;
+}
+
+// Susun riwayat milik siswa + rata-rata kelas per ujian. `sesiSemua` = semua sesi (sudah digabung dg cache).
+function ptSusunRiwayat_(sesiSemua, ujianMap, siswaMap, sayaId) {
+  var saya = siswaMap[sayaId] || {}, kelasSaya = ptNorm_(saya.kelas);
+  var terbaik = {}; // ujianId -> { siswaId -> nilai tertinggi } untuk teman sekelas
+  sesiSemua.forEach(function (s) {
+    if (s.status !== 'selesai' || s.nilai === '' || s.nilai === null || s.nilai === undefined || isNaN(Number(s.nilai))) return;
+    var si = siswaMap[s.siswa_id]; if (!si || ptNorm_(si.kelas) !== kelasSaya) return;
+    var m = terbaik[s.ujian_id] = terbaik[s.ujian_id] || {}, n = Number(s.nilai);
+    if (m[s.siswa_id] === undefined || n > m[s.siswa_id]) m[s.siswa_id] = n;
+  });
+  var rataKelas = function (uid) {
+    var m = terbaik[uid]; if (!m) return null;
+    var arr = Object.keys(m).map(function (k) { return m[k]; });
+    return arr.length ? ptR2_(ptRata_(arr)) : null;
+  };
+  var out = [];
+  sesiSemua.forEach(function (s) {
+    if (String(s.siswa_id) !== String(sayaId) || s.status === 'berlangsung') return;
+    var u = ujianMap[s.ujian_id]; if (!u) return;
+    var nl = (s.nilai === '' || s.nilai === null || s.nilai === undefined || isNaN(Number(s.nilai))) ? null : Number(s.nilai);
+    out.push({
+      id: s.id, u: u.id, judul: u.judul, kategori: u.kategori || '', mulai: s.mulai, selesai: s.selesai, status: s.status,
+      nilai: nl, lulus: s.lulus, kkm: Number(u.nilai_lulus) || 0, pelanggaran: Number(s.pelanggaran) || 0,
+      detail: String(u.tampil_detail).toLowerCase() !== 'false', rataKelas: rataKelas(u.id), waktuUjian: u.mulai || ''
+    });
+  });
+  out.sort(function (a, b) { return (Date.parse(b.selesai) || 0) - (Date.parse(a.selesai) || 0); });
+  return out;
+}
+
+
 async function api(action, payload) {
   const body = Object.assign({ action }, payload || {});
   mulaiLoading();
@@ -2896,6 +2602,8 @@ const LocalBackend = (function () {
     db.sesi = db.sesi || [];
     db.log = db.log || [];
     db.buktiOrek = db.buktiOrek || [];
+    db.survei = db.survei || [];
+    db.paketSurvei = db.paketSurvei || [];
     db.config = db.config || {};
     if (db.guru.length === 0) {
       db.guru.push({ id: 'G001', username: 'admin', password: 'admin123', nama: 'Administrator', tema_json: JSON.stringify(defaultTemaLocal()) });
@@ -2969,92 +2677,6 @@ const LocalBackend = (function () {
   // aslinya -- walau kunci jawaban yang diisi guru sudah 100% benar. Ini
   // sebelumnya adalah BUG: skorSoal() membandingkan posisi-tampil langsung ke
   // kunci tanpa penerjemahan ini.
-// ============================================================================
-// SKD CPNS -- PENILAIAN & ANALISIS (blok ini IDENTIK di Code.gs dan LocalBackend app.js)
-// TWK & TIU: jawaban benar = 5, salah/kosong = 0.  TKP: tiap opsi bernilai 1-5 (kosong = 0).
-// Lulus SKD = memenuhi SEMUA ambang batas (TWK, TIU, TKP) dan total (formasi umum). Formasi khusus
-// hanya mensyaratkan TIU minimum dan total. Ambang bisa diubah per ujian (kolom Ujian.ambang_json).
-// ============================================================================
-var SKD_PRESET = {
-  umum: { nama: 'Formasi Umum', twk: 65, tiu: 80, tkp: 166, total: 311 },
-  disabilitas: { nama: 'Penyandang Disabilitas / Putra-Putri Papua', twk: 0, tiu: 60, tkp: 0, total: 286 },
-  cumlaude: { nama: 'Lulusan Terbaik (Cumlaude) / Diaspora', twk: 0, tiu: 85, tkp: 0, total: 311 },
-  dokter: { nama: 'Formasi Dokter', twk: 0, tiu: 80, tkp: 0, total: 311 },
-  abk: { nama: 'ABK / Rescuer / Pengamat Gunung Api', twk: 0, tiu: 70, tkp: 0, total: 286 }
-};
-function skdSubtes_(soal) {
-  var sub = String((soal && soal.subtes) || '').trim().toUpperCase();
-  if (sub === 'TWK' || sub === 'TIU' || sub === 'TKP') return sub; // subtes yang ditetapkan pada soal diutamakan
-  var t = (String((soal && soal.subtes) || '') + ' ' + String((soal && soal.kategori) || '')).toLowerCase();
-  if (/(^|[^a-z])tkp([^a-z]|$)|karakteristik pribadi/.test(t)) return 'TKP';
-  if (/(^|[^a-z])tiu([^a-z]|$)|inteleg|intelijensi|inteligensi/.test(t)) return 'TIU';
-  if (/(^|[^a-z])twk([^a-z]|$)|wawasan kebangsaan/.test(t)) return 'TWK';
-  if (soal && soal.tipe === 'tkp') return 'TKP';
-  return '';
-}
-// Ambang batas ujian. Kembalian null = ujian lama (non-SKD) yang masih memakai nilai persen & KKM.
-function skdAmbang_(ujian) {
-  var raw = ujian && ujian.ambang_json ? String(ujian.ambang_json).trim() : '';
-  if (!raw) return null;
-  var a = null; try { a = JSON.parse(raw); } catch (e) { a = null; }
-  if (!a || typeof a !== 'object') return null;
-  var p = SKD_PRESET[a.formasi] || SKD_PRESET.umum;
-  var n = function (v, d) { v = Number(v); return isNaN(v) ? d : v; };
-  return { formasi: SKD_PRESET[a.formasi] ? a.formasi : 'umum', nama: p.nama, twk: n(a.twk, p.twk), tiu: n(a.tiu, p.tiu), tkp: n(a.tkp, p.tkp), total: n(a.total, p.total) };
-}
-function skdMaksSoal_(soal) {
-  if (soal.tipe === 'tkp') {
-    var arr = parseKunciJson_(soal.kunci_json); var m = 0;
-    if (Array.isArray(arr)) arr.forEach(function (v) { v = Number(v); if (!isNaN(v) && v > m) m = v; });
-    return m || 5;
-  }
-  return Number(soal.bobot) || 5;
-}
-// rows: [{ subtes, topik, tipe, skor, maks, jawab }]
-function skdRingkas_(rows, ambang) {
-  var S = { TWK: { skor: 0, maks: 0, n: 0, benar: 0, kosong: 0 }, TIU: { skor: 0, maks: 0, n: 0, benar: 0, kosong: 0 }, TKP: { skor: 0, maks: 0, n: 0, benar: 0, kosong: 0 } };
-  var lain = { skor: 0, maks: 0, n: 0 }; var topik = {}; var urutTopik = [];
-  rows.forEach(function (r) {
-    var b = S[r.subtes] || lain; var skor = Number(r.skor) || 0; var maks = Number(r.maks) || 0;
-    b.skor += skor; b.maks += maks; b.n++;
-    if (S[r.subtes]) { if (!r.jawab) b.kosong++; else if (skor >= maks && maks > 0) b.benar++; else if (r.tipe !== 'tkp' && skor > 0) b.benar++; }
-    var kt = (r.subtes || '-') + '|' + (String(r.topik || '').trim() || '(Tanpa topik)');
-    if (!topik[kt]) { topik[kt] = { subtes: r.subtes || '-', topik: String(r.topik || '').trim() || '(Tanpa topik)', skor: 0, maks: 0, jumlah: 0, benar: 0, kosong: 0 }; urutTopik.push(kt); }
-    var t = topik[kt]; t.skor += skor; t.maks += maks; t.jumlah++;
-    if (!r.jawab) t.kosong++; else if (skor >= maks && maks > 0) t.benar++;
-  });
-  var total = S.TWK.skor + S.TIU.skor + S.TKP.skor + lain.skor;
-  var maksTotal = S.TWK.maks + S.TIU.maks + S.TKP.maks + lain.maks;
-  var amb = ambang || SKD_PRESET.umum;
-  var okTwk = !(amb.twk > 0) || S.TWK.skor >= amb.twk;
-  var okTiu = !(amb.tiu > 0) || S.TIU.skor >= amb.tiu;
-  var okTkp = !(amb.tkp > 0) || S.TKP.skor >= amb.tkp;
-  var okTot = !(amb.total > 0) || total >= amb.total;
-  return {
-    twk: S.TWK.skor, tiu: S.TIU.skor, tkp: S.TKP.skor, total: total,
-    maks: { twk: S.TWK.maks, tiu: S.TIU.maks, tkp: S.TKP.maks, total: maksTotal },
-    jumlah: { twk: S.TWK.n, tiu: S.TIU.n, tkp: S.TKP.n, total: rows.length },
-    benar: { twk: S.TWK.benar, tiu: S.TIU.benar, tkp: S.TKP.benar }, kosong: { twk: S.TWK.kosong, tiu: S.TIU.kosong, tkp: S.TKP.kosong },
-    ambang: { formasi: amb.formasi || 'umum', twk: amb.twk, tiu: amb.tiu, tkp: amb.tkp, total: amb.total },
-    ok: { twk: okTwk, tiu: okTiu, tkp: okTkp, total: okTot }, lulus: okTwk && okTiu && okTkp && okTot,
-    topik: urutTopik.map(function (k) { var t = topik[k]; t.persen = t.maks > 0 ? Math.round(t.skor / t.maks * 1000) / 10 : 0; return t; })
-  };
-}
-
-  function riwayatSiswaLokal_(D, siswaId) {
-    const out = [];
-    D.sesi.forEach(s => { if (String(s.siswa_id) !== String(siswaId) || s.status === 'berlangsung') return; const u = D.ujian.find(x => x.id === s.ujian_id); if (u) out.push({ sesi: s, ujian: u }); });
-    out.sort((x, y) => new Date(x.sesi.selesai || x.sesi.mulai) - new Date(y.sesi.selesai || y.sesi.mulai));
-    return out;
-  }
-  function ringkasRiwayatLokal_(p) {
-    const s = p.sesi, skd = skdParse_(s.skor_json);
-    return { sesiId: s.id, ujianId: p.ujian.id, judul: p.ujian.judul, waktu: s.selesai || s.mulai, nilai: Number(s.nilai) || 0, lulus: String(s.lulus) === 'true' || s.lulus === true,
-      twk: skd ? skd.twk : null, tiu: skd ? skd.tiu : null, tkp: skd ? skd.tkp : null, maks: skd ? skd.maks : null, ambang: skd ? skd.ambang : null };
-  }
-  function skdJson_(skd) { return skd ? JSON.stringify(skd) : ''; }
-  function skdParse_(txt) { if (!txt) return null; try { const o = JSON.parse(txt); return (o && typeof o === 'object') ? o : null; } catch (e) { return null; } }
-
   function skorSoal(soal, jwb, idxOrder) {
     const bobot = Number(soal.bobot) || 0;
     if (jwb === undefined || jwb === null || jwb === '') return 0;
@@ -3066,15 +2688,11 @@ function skdRingkas_(rows, ambang) {
       return (Array.isArray(idxOrder) && idxOrder[p] !== undefined) ? Number(idxOrder[p]) : p;
     };
     switch (soal.tipe) {
-      case 'tkp': { // TKP: skor 1-5 per opsi (array di kunci_json, indeks = opsi ASLI)
-        const v = Number((Array.isArray(kunci) ? kunci : [])[keIndeksAsli(jwb)]);
-        return isNaN(v) ? 0 : v;
-      }
       case 'pilihan_ganda':
       case 'benar_salah':
         return keIndeksAsli(jwb) === Number(kunci) ? bobot : 0;
       case 'checkbox': {
-        // DIKOTOMIS / ALL-OR-NOTHING (pilihan majemuk): benar penuh HANYA bila himpunan
+        // DIKOTOMIS / ALL-OR-NOTHING (PGK MCMA TKA): benar penuh HANYA bila himpunan
         // pilihan siswa SAMA PERSIS dengan kunci (tidak kurang, tidak lebih). Selain itu 0.
         const benar = Array.isArray(kunci) ? Array.from(new Set(kunci.map(Number))) : [];
         if (benar.length === 0) return 0;
@@ -3083,7 +2701,7 @@ function skdRingkas_(rows, ambang) {
         return persis ? bobot : 0;
       }
       case 'menjodohkan': {
-        // DIKOTOMIS / ALL-OR-NOTHING (pernyataan: Benar/Salah, Sesuai/Tidak Sesuai,
+        // DIKOTOMIS / ALL-OR-NOTHING (PGK Kategori TKA: Benar/Salah, Sesuai/Tidak Sesuai,
         // Tepat/Tidak Tepat per pernyataan): benar penuh HANYA bila SEMUA pernyataan
         // sesuai kunci. Satu saja keliru/kosong -> 0.
         const kunciKeys = Object.keys(kunci);
@@ -3112,7 +2730,7 @@ function skdRingkas_(rows, ambang) {
     const opsiAcakMap = urutan.opsiAcak || {};
     const ujian = D.ujian.find(u => u.id === sesi.ujian_id);
     const soalMap = {}; D.bankSoal.forEach(s => soalMap[s.id] = s);
-    let totalBobot = 0, totalDapat = 0, detail = []; const skdRows = [];
+    let totalBobot = 0, totalDapat = 0, detail = [];
     (urutan.order || []).forEach(sid => {
       const soal = soalMap[sid];
       if (!soal) return;
@@ -3121,11 +2739,7 @@ function skdRingkas_(rows, ambang) {
       const skor = skorSoal(soal, jawaban[sid], opsiAcakMap[sid]);
       totalDapat += skor;
       detail.push({ id: sid, tipe: soal.tipe, bobot, skor });
-      const jw = jawaban[sid]; const ada = !(jw === undefined || jw === null || jw === '' || (Array.isArray(jw) && !jw.length));
-      skdRows.push({ sid, subtes: skdSubtes_(soal), topik: soal.topik, tipe: soal.tipe, skor, maks: skdMaksSoal_(soal), jawab: ada });
     });
-    const ambangSkd = skdAmbang_(ujian);
-    if (ambangSkd) { const skd = skdRingkas_(skdRows, ambangSkd); return { nilai: skd.total, lulus: skd.lulus, detail, skd }; }
     const nilaiAkhir = totalBobot > 0 ? Math.round((totalDapat / totalBobot) * 10000) / 100 : 0;
     const nilaiLulus = ujian ? Number(ujian.nilai_lulus) || 0 : 0;
     const lulus = nilaiAkhir >= nilaiLulus;
@@ -3146,23 +2760,17 @@ function skdRingkas_(rows, ambang) {
     (urutan.order || []).forEach(sid => {
       const soal = soalMap[sid];
       if (!soal) return;
-      const bobot = soal.tipe === 'tkp' ? skdMaksSoal_(soal) : (Number(soal.bobot) || 0);
+      const bobot = Number(soal.bobot) || 0;
       const idxOrder = opsiAcakMap[sid];
       const jwb = jawaban[sid];
       const skor = skorSoal(soal, jwb, idxOrder);
       let kunci = null; kunci = parseKunciJson_(soal.kunci_json);
-      let opsi = null, kunciTampil = null, skorOpsi = null;
-      if (soal.tipe === 'pilihan_ganda' || soal.tipe === 'checkbox' || soal.tipe === 'benar_salah' || soal.tipe === 'tkp') {
+      let opsi = null, kunciTampil = null;
+      if (soal.tipe === 'pilihan_ganda' || soal.tipe === 'checkbox' || soal.tipe === 'benar_salah') {
         const opsiAsli = JSON.parse(soal.opsi_json || '[]');
         const order = Array.isArray(idxOrder) ? idxOrder : opsiAsli.map((_, i) => i);
         opsi = order.map(i => opsiAsli[i]);
-        let daftarKunci;
-        if (soal.tipe === 'tkp') {
-          const arr = Array.isArray(kunci) ? kunci : [];
-          skorOpsi = order.map(i => Number(arr[i]) || 0);
-          const mx = Math.max(0, ...skorOpsi);
-          daftarKunci = []; order.forEach(i => { if ((Number(arr[i]) || 0) === mx && mx > 0) daftarKunci.push(i); });
-        } else daftarKunci = soal.tipe === 'checkbox' ? (Array.isArray(kunci) ? kunci : []) : (kunci === null || kunci === undefined || kunci === '' ? [] : [kunci]);
+        const daftarKunci = soal.tipe === 'checkbox' ? (Array.isArray(kunci) ? kunci : []) : (kunci === null || kunci === undefined || kunci === '' ? [] : [kunci]);
         kunciTampil = daftarKunci.map(k => order.indexOf(Number(k))).filter(i => i >= 0);
       } else if (soal.tipe === 'menjodohkan') {
         opsi = JSON.parse(soal.opsi_json || '{}');
@@ -3180,7 +2788,7 @@ function skdRingkas_(rows, ambang) {
       else if (bobot > 0 && skor >= bobot) status = 'benar';
       else if (skor > 0) status = 'sebagian';
       else status = 'salah';
-      items.push({ id: sid, tipe: soal.tipe, pertanyaan: soal.pertanyaan, gambar: soal.gambar || '', opsi, jawaban: kosong ? null : jwb, kunciTampil, skorOpsi, subtes: skdSubtes_(soal), topik: soal.topik || '', bobot, skor, status, pembahasan: soal.pembahasan || '' });
+      items.push({ id: sid, tipe: soal.tipe, pertanyaan: soal.pertanyaan, gambar: soal.gambar || '', opsi, jawaban: kosong ? null : jwb, kunciTampil, bobot, skor, status, pembahasan: soal.pembahasan || '' });
     });
     return items;
   }
@@ -3192,7 +2800,6 @@ function skdRingkas_(rows, ambang) {
     sesi.jawaban_json = JSON.stringify(jawaban);
     sesi.nilai = hasil.nilai;
     sesi.lulus = hasil.lulus;
-    sesi.skor_json = skdJson_(hasil.skd);
     simpan();
     return hasil;
   }
@@ -3204,9 +2811,9 @@ function skdRingkas_(rows, ambang) {
     return (m === 'wajib' || m === 'opsional') ? m : '';
   }
   function fotoBuktiLokal(b) { return { id: b.id, nama: b.nama, bytes: b.bytes, waktu: b.waktu, url: b.url, urlAsli: b.url }; }
-    function izinKelasLokal_(ujian, siswaId, DB) {
+    function izinKelasLokal_(ujian, siswaId) {
       const aktif = kelasAktifUjian_(ujian); if (aktif === null) return { ok: true };
-      const sw = DB.siswa.find(x => x.id === siswaId); const kelas = sw ? String(sw.kelas || '') : '';
+      const sw = D.siswa.find(x => x.id === siswaId); const kelas = sw ? String(sw.kelas || '') : '';
       if (aktif.indexOf(normKelas_(kelas)) >= 0) return { ok: true };
       return { ok: false, error: 'Token ujian ini belum diaktifkan untuk kelas ' + (kelas.trim() || 'Anda') + '. Tunggu jadwal dari guru/pengawas.' };
     }
@@ -3280,7 +2887,7 @@ function skdRingkas_(rows, ambang) {
           if (u.mulai && now < new Date(u.mulai)) return false;
           const batas = u.selesai ? new Date(new Date(u.selesai).getTime() + (Number(u.toleransi_menit) || 0) * 60000) : null;
           return !(batas && now > batas);
-        }).filter(u => !data.siswaId || izinKelasLokal_(u, data.siswaId, D).ok).map(u => ({ judul: u.judul, token: tampil ? u.token : '' }));
+        }).filter(u => !data.siswaId || izinKelasLokal_(u, data.siswaId).ok).map(u => ({ judul: u.judul, token: tampil ? u.token : '' }));
         return { ok: true, tampil, ujian: list };
       }
       case 'getPengaturanLock': {
@@ -3337,58 +2944,18 @@ function skdRingkas_(rows, ambang) {
         simpan();
         return { ok: true, count: n };
       }
-      case 'ubahNamaGrupSoal': {
-        const jenis = String(data.jenis || ''), baru = String(data.baru || '').trim();
-        if ((jenis !== 'kategori' && jenis !== 'paket') || !String(data.lama || '').trim() || !baru) return { ok: false, error: 'Data tidak lengkap.' };
-        let n = 0, nu = 0;
-        D.bankSoal.forEach(x => {
-          if (data.guruId && x.guru_id !== data.guruId) return;
-          if (jenis === 'paket' && data.kategori && !samaTeks_(x.kategori, data.kategori)) return;
-          const kolom = jenis === 'kategori' ? 'kategori' : 'subkategori';
-          if (samaTeks_(x[kolom], data.lama)) {
-            x[kolom] = baru; n++;
-            const sb = String(data.subtes || '').toUpperCase();
-            if (jenis === 'kategori' && (sb === 'TWK' || sb === 'TIU' || sb === 'TKP') && !String(x.subtes || '').trim()) x.subtes = sb;
-          }
-        });
-        if (jenis === 'paket' && n > 0 && !data.kategori) D.ujian.forEach(u => { if ((!data.guruId || u.guru_id === data.guruId) && samaTeks_(u.subkategori, data.lama)) { u.subkategori = baru; nu++; } });
+      case 'ubahNamaKategori': {
+        const dari = String(data.dari == null ? '' : data.dari).trim(), ke = String(data.ke == null ? '' : data.ke).trim();
+        if (!dari || !ke) return { ok: false, error: 'Nama kategori tidak boleh kosong.' };
+        if (ke.length > 60) return { ok: false, error: 'Nama kategori maksimal 60 karakter.' };
+        const milik = x => !data.guruId || String(x.guru_id) === String(data.guruId);
+        if (!samaTeks_(dari, ke) && D.bankSoal.some(s => milik(s) && samaTeks_(s.kategori, ke))) return { ok: false, error: 'Sudah ada kategori bernama "' + ke + '".' };
+        let nSoal = 0, nUjian = 0, nPaket = 0;
+        D.bankSoal.forEach(s => { if (milik(s) && samaTeks_(s.kategori, dari)) { s.kategori = ke; nSoal++; } });
+        D.ujian.forEach(u => { if (milik(u) && samaTeks_(u.kategori, dari)) { u.kategori = ke; nUjian++; } });
+        (D.paketSurvei || []).forEach(p => { if (milik(p) && samaTeks_(p.kategori, dari)) { p.kategori = ke; nPaket++; } });
         simpan();
-        return { ok: true, count: n, ujian: nu };
-      }
-      case 'getPengaturanLeaderboard': return { ok: true, aktif: D.config.leaderboardSiswa !== false };
-      case 'simpanPengaturanLeaderboard': {
-        D.config.leaderboardSiswa = data.aktif === true || String(data.aktif).toLowerCase() === 'true';
-        simpan();
-        return { ok: true, aktif: D.config.leaderboardSiswa };
-      }
-      case 'getLeaderboard': {
-        const sebagaiSiswa = !!data.siswaId;
-        if (sebagaiSiswa && D.config.leaderboardSiswa === false) return { ok: true, data: { nonaktif: true, entri: [], total: 0, saya: null, kelasList: [] } };
-        const ujian = D.ujian.find(u => u.id === data.ujianId);
-        if (!ujian) return { ok: false, error: 'Ujian tidak ditemukan.' };
-        const siswaMap = {}; D.siswa.forEach(x => { siswaMap[x.id] = x; });
-        const terbaik = {};
-        D.sesi.filter(x => x.ujian_id === data.ujianId && x.status !== 'berlangsung').forEach(x => {
-          const skd = skdParse_(x.skor_json);
-          const total = (skd && skd.total != null) ? Number(skd.total) : (Number(x.nilai) || 0);
-          const a = new Date(x.mulai).getTime(), b = new Date(x.selesai).getTime();
-          const durasi = (isNaN(a) || isNaN(b) || b < a) ? null : Math.round((b - a) / 1000);
-          const cur = terbaik[x.siswa_id];
-          if (cur && !(total > cur.total || (total === cur.total && durasi !== null && (cur.durasi === null || durasi < cur.durasi)))) return;
-          const sw = siswaMap[x.siswa_id] || {};
-          terbaik[x.siswa_id] = { siswaId: x.siswa_id, nama: sw.nama || '(tidak dikenal)', kelas: sw.kelas || '-', twk: skd ? skd.twk : null, tiu: skd ? skd.tiu : null, tkp: skd ? skd.tkp : null, total, lulus: skd ? !!skd.lulus : !!x.lulus, durasi };
-        });
-        const semua = Object.values(terbaik);
-        const kelasList = [...new Set(semua.map(e => e.kelas))].sort();
-        const daftar = data.kelas ? semua.filter(e => samaTeks_(e.kelas, data.kelas)) : semua;
-        daftar.sort((x, y) => (y.total - x.total) || ((x.durasi === null ? 1e12 : x.durasi) - (y.durasi === null ? 1e12 : y.durasi)) || String(x.nama).localeCompare(String(y.nama)));
-        daftar.forEach((e, i) => { const p = daftar[i - 1]; e.peringkat = (p && p.total === e.total && p.durasi === e.durasi) ? p.peringkat : i + 1; });
-        let saya = null;
-        if (sebagaiSiswa) { const m = daftar.find(e => String(e.siswaId) === String(data.siswaId)); if (m) saya = { peringkat: m.peringkat, total: m.total, twk: m.twk, tiu: m.tiu, tkp: m.tkp, lulus: m.lulus, durasi: m.durasi }; }
-        const limit = Math.max(0, Number(data.limit) || 0);
-        let entri = limit ? daftar.slice(0, limit) : daftar;
-        entri = entri.map(e => sebagaiSiswa ? { peringkat: e.peringkat, nama: e.nama, kelas: e.kelas, twk: e.twk, tiu: e.tiu, tkp: e.tkp, total: e.total, lulus: e.lulus, durasi: e.durasi, saya: String(e.siswaId) === String(data.siswaId) } : e);
-        return { ok: true, data: { judul: ujian.judul, total: daftar.length, entri, saya, kelasList } };
+        return { ok: true, soal: nSoal, ujian: nUjian, paket: nPaket };
       }
       case 'getBankSoal': {
         let list = clone(D.bankSoal);
@@ -3404,7 +2971,7 @@ function skdRingkas_(rows, ambang) {
           if (idx > -1) { D.ujian[idx] = Object.assign({}, D.ujian[idx], ujian); simpan(); return { ok: true, id: ujian.id }; }
         }
         ujian.id = genId('U');
-        if (!ujian.token) ujian.token = buatTokenAman_();
+        if (!ujian.token) { do { ujian.token = buatTokenAman_(); } while (D.ujian.some(x => x.token === ujian.token)); }
         ujian.status = ujian.status || 'aktif';
         D.ujian.push(ujian);
         simpan();
@@ -3440,7 +3007,7 @@ function skdRingkas_(rows, ambang) {
         const siswaMap = {}; D.siswa.forEach(s => siswaMap[s.id] = s);
         const rekap = sesiList.map(s => {
           const siswa = siswaMap[s.siswa_id] || {};
-          return { sesiId: s.id, siswaId: s.siswa_id, skd: skdParse_(s.skor_json), nama: siswa.nama || '(tidak dikenal)', kelas: siswa.kelas || '-', nilai: s.nilai, lulus: s.lulus, pelanggaran: s.pelanggaran, mulai: s.mulai, selesai: s.selesai, status: s.status };
+          return { sesiId: s.id, siswaId: s.siswa_id, nama: siswa.nama || '(tidak dikenal)', kelas: siswa.kelas || '-', nilai: s.nilai, lulus: s.lulus, pelanggaran: s.pelanggaran, mulai: s.mulai, selesai: s.selesai, status: s.status };
         });
         rekap.forEach(r => { r.bukti = (D.buktiOrek || []).filter(b => b.sesi_id === r.sesiId).map(fotoBuktiLokal); });
         return { ok: true, data: rekap, buktiMode: modeBuktiLokal(D.ujian.find(u => u.id === data.ujianId)) };
@@ -3457,15 +3024,85 @@ function skdRingkas_(rows, ambang) {
         sesiList.forEach(sesi => {
           let jawaban = {}; try { jawaban = JSON.parse(sesi.jawaban_json || '{}'); } catch (e) {}
           const hasil = hitungNilaiDariJawaban_(D, sesi, jawaban);
-          if (Number(sesi.nilai) !== Number(hasil.nilai) || String(sesi.lulus) !== String(hasil.lulus) || String(sesi.skor_json || '') !== skdJson_(hasil.skd)) {
+          if (Number(sesi.nilai) !== Number(hasil.nilai) || String(sesi.lulus) !== String(hasil.lulus)) {
             sesi.nilai = hasil.nilai;
             sesi.lulus = hasil.lulus;
-            sesi.skor_json = skdJson_(hasil.skd);
             totalBerubah++;
           }
         });
         simpan();
         return { ok: true, totalDiperiksa: sesiList.length, totalBerubah };
+      }
+      case 'getPortalSiswa': {
+        const siswaMap = {}; D.siswa.forEach(x => { siswaMap[x.id] = x; });
+        if (!data.siswaId || !siswaMap[data.siswaId]) return { ok: false, error: 'Akun siswa tidak dikenali.' };
+        const ujianMap = {}; D.ujian.forEach(x => { ujianMap[x.id] = x; });
+        const sesiFinal = D.sesi.filter(s => s.status === 'selesai' && s.nilai !== '' && s.nilai !== null && s.nilai !== undefined && !isNaN(Number(s.nilai)));
+        return clone({ ok: true, riwayat: ptSusunRiwayat_(D.sesi, ujianMap, siswaMap, data.siswaId), lb: ptHitungLeaderboard_(sesiFinal, ujianMap, siswaMap, data.siswaId) });
+      }
+      // ANALISIS MATERI (per topik) -- setara actionGetAnalisisMateri_ di Code.gs (bentuk data sama persis).
+      case 'getAnalisisMateri': {
+        const modeSiswa = !!data.siswaId;
+        const ujianPeta = {};
+        if (modeSiswa) D.ujian.forEach(u => { ujianPeta[u.id] = u; });
+        else {
+          if (!data.guruId || !D.guru.some(g => String(g.id) === String(data.guruId))) return { ok: false, error: 'Akun guru tidak dikenali.' };
+          D.ujian.forEach(u => {
+            if (String(u.guru_id) !== String(data.guruId)) return;
+            if (data.ujianId && String(u.id) !== String(data.ujianId)) return;
+            ujianPeta[u.id] = u;
+          });
+        }
+        const soalMap = {}; D.bankSoal.forEach(x => { soalMap[x.id] = x; });
+        const siswaMap = {}; D.siswa.forEach(x => { siswaMap[x.id] = x; });
+        const kode = (so, jwb, idxOrder) => {
+          const bobot = Number(so.bobot) || 0;
+          const kosong = jwb === undefined || jwb === null || jwb === '' || (Array.isArray(jwb) && jwb.length === 0) ||
+            (so.tipe === 'menjodohkan' && (typeof jwb !== 'object' || Object.keys(jwb).filter(k => jwb[k] !== '' && jwb[k] !== null && jwb[k] !== undefined).length === 0));
+          if (kosong) return 'k';
+          if (so.tipe === 'uraian') {
+            const kc = parseKunciJson_(so.kunci_json);
+            const kk = (kc && Array.isArray(kc.kataKunci)) ? kc.kataKunci.filter(x => String(x).trim()) : [];
+            if (!kk.length) return 'm';
+          }
+          const skor = skorSoal(so, jwb, idxOrder);
+          if (bobot > 0 && skor >= bobot - 0.001) return 'b';
+          if (skor > 0) return 'p';
+          return 's';
+        };
+        const ujianKeluar = {}, disembunyikan = {}, sesiKeluar = [];
+        D.sesi.forEach(sesi => {
+          if (modeSiswa ? String(sesi.siswa_id) !== String(data.siswaId) : !ujianPeta[sesi.ujian_id]) return;
+          if (sesi.status === 'berlangsung' || sesi.status === 'diblokir') return;
+          const u = ujianPeta[sesi.ujian_id]; if (!u) return;
+          if (modeSiswa && String(u.tampil_detail).toLowerCase() === 'false') { disembunyikan[u.id] = { judul: u.judul, kategori: u.kategori || '' }; return; }
+          if (!ujianKeluar[u.id]) {
+            const ids = String(u.soal_ids || '').split(',').filter(Boolean);
+            ujianKeluar[u.id] = { id: u.id, judul: u.judul, kategori: u.kategori || '', subkategori: u.subkategori || '', _ids: ids,
+              soal: ids.map(sid => { const so = soalMap[sid]; return so ? { id: sid, t: String(so.topik || '').trim(), s: String(so.subkategori || '').trim(), w: Number(so.bobot) || 0 } : { id: sid, t: '', s: '', w: 0, x: 1 }; }) };
+          }
+          const uk = ujianKeluar[u.id];
+          let jawaban = {}; try { jawaban = JSON.parse(sesi.jawaban_json || '{}'); } catch (e) {}
+          let urutan = {}; try { urutan = JSON.parse(sesi.urutan_json || '{}'); } catch (e) {}
+          const opsiAcakMap = urutan.opsiAcak || {};
+          let diberikan = null;
+          if (Array.isArray(urutan.order) && urutan.order.length) { diberikan = {}; urutan.order.forEach(sid => { diberikan[sid] = true; }); }
+          let r = '';
+          uk._ids.forEach(sid => {
+            const so = soalMap[sid];
+            if (!so || (diberikan && !diberikan[sid])) { r += 'n'; return; }
+            r += kode(so, jawaban[sid], opsiAcakMap[sid]);
+          });
+          const siswa = siswaMap[sesi.siswa_id] || {};
+          const item = { id: sesi.id, u: u.id, si: sesi.siswa_id, nm: siswa.nama || '(tidak dikenal)', kl: siswa.kelas || '-', sl: sesi.selesai, nl: sesi.nilai, r };
+          if (modeSiswa) {
+            const o = [];
+            (Array.isArray(urutan.order) && urutan.order.length ? urutan.order : uk._ids).forEach(sid => { const ix = uk._ids.indexOf(sid); if (ix >= 0) o.push(ix); });
+            item.o = o;
+          }
+          sesiKeluar.push(item);
+        });
+        return { ok: true, ujian: Object.keys(ujianKeluar).map(k => { const x = ujianKeluar[k]; delete x._ids; return x; }), sesi: sesiKeluar, tersembunyi: Object.keys(disembunyikan).map(k => disembunyikan[k]) };
       }
       case 'getAnalisisSoal': {
         const ujian = D.ujian.find(u => u.id === data.ujianId);
@@ -3602,6 +3239,7 @@ function skdRingkas_(rows, ambang) {
         const ids = new Set(JSON.parse(data.sesiIds || '[]').map(String));
         D.sesi = D.sesi.filter(x => !ids.has(String(x.id)));
         D.buktiOrek = (D.buktiOrek || []).filter(b => !ids.has(String(b.sesi_id))); // foto bukti ikut dibersihkan
+        D.survei = (D.survei || []).filter(x => !ids.has(String(x.sesi_id))); // hasil survei ikut dibersihkan
         if (Array.isArray(D.log)) D.log = D.log.filter(l => !ids.has(String(l.sesi_id)));
         simpan();
         return { ok: true, count: ids.size };
@@ -3609,6 +3247,7 @@ function skdRingkas_(rows, ambang) {
       case 'pemantauanReset': {
         const idx = cariIdx(D.sesi, data.sesiId);
         if (idx > -1) D.sesi.splice(idx, 1);
+        D.survei = (D.survei || []).filter(x => String(x.sesi_id) !== String(data.sesiId));
         simpan();
         return { ok: true };
       }
@@ -3736,7 +3375,7 @@ function skdRingkas_(rows, ambang) {
       case 'cekToken': {
         const sBlokirCek = data.siswaId ? D.siswa.find(x => x.id === data.siswaId) : null;
         if (sBlokirCek && infoBlokirLokal(sBlokirCek).aktif) return { ok: false, error: pesanBlokirLokal(infoBlokirLokal(sBlokirCek)) };
-        const ujian = D.ujian.find(u => u.token === String(data.token || '').toUpperCase());
+        const ujian = pilihUjianByToken_(D.ujian, data.token);
         if (!ujian) return { ok: false, error: 'Token ujian tidak ditemukan.' };
         const now = new Date();
         if (ujian.mulai && now < new Date(ujian.mulai)) return { ok: false, error: 'Ujian belum dibuka.' };
@@ -3744,7 +3383,7 @@ function skdRingkas_(rows, ambang) {
         if (batasTelat && now > batasTelat) return { ok: false, error: 'Waktu akses ujian sudah berakhir.' };
         if (ujian.status !== 'aktif') return { ok: false, error: 'Ujian ini sedang tidak aktif.' };
         const lanjutan = !!D.sesi.find(s => s.ujian_id === ujian.id && s.siswa_id === data.siswaId && s.status !== 'selesai' && s.status !== 'diblokir');
-        if (!lanjutan) { const iz = izinKelasLokal_(ujian, data.siswaId, D); if (!iz.ok) return { ok: false, error: iz.error }; }
+        if (!lanjutan) { const iz = izinKelasLokal_(ujian, data.siswaId); if (!iz.ok) return { ok: false, error: iz.error }; }
         return { ok: true, ujian: { id: ujian.id, judul: ujian.judul, durasiMenit: ujian.durasi_menit, kategori: ujian.kategori, lanjutan } };
       }
       case 'mulaiUjian': {
@@ -3756,13 +3395,15 @@ function skdRingkas_(rows, ambang) {
         if (existing && existing.status === 'selesai') {
           // Pemulihan: bukti WAJIB tapi belum ada foto sama sekali -> arahkan ke halaman unggah
           const perluBuktiL = modeBuktiLokal(ujian) === 'wajib' && !(D.buktiOrek || []).some(b => b.sesi_id === existing.id);
-          if (perluBuktiL) {
-            return { ok: true, perluBukti: perluBuktiL, sesiId: existing.id, nilai: existing.nilai, lulus: existing.lulus, buktiOrek: perluBuktiL ? 'wajib' : '', judul: ujian.judul };
+          const perluSurveiL = !!Survei.jenisUntukUjian(ujian, D.paketSurvei) && !(D.survei || []).some(x => x.sesi_id === existing.id);
+          if (perluBuktiL || perluSurveiL) {
+            return { ok: true, perluBukti: perluBuktiL, perluSurvei: perluSurveiL, sesiId: existing.id, nilai: existing.nilai, lulus: existing.lulus, buktiOrek: perluBuktiL ? 'wajib' : '', judul: ujian.judul };
           }
           return { ok: false, error: 'Anda sudah menyelesaikan ujian ini.' };
         }
         if (existing && existing.status === 'diblokir') return { ok: false, error: 'Sesi ujian Anda telah diblokir karena pelanggaran. Hubungi guru.' };
-        if (!existing) { const izK = izinKelasLokal_(ujian, data.siswaId, D); if (!izK.ok) return { ok: false, error: izK.error }; }
+        if (!existing && ujian.status !== 'aktif') return { ok: false, error: 'Ujian ini sedang tidak aktif.' }; // siswa yang sudah mengerjakan tetap boleh melanjutkan
+        if (!existing) { const izK = izinKelasLokal_(ujian, data.siswaId); if (!izK.ok) return { ok: false, error: izK.error }; }
 
         const soalIds = String(ujian.soal_ids || '').split(',').filter(Boolean);
         const soalMap = {}; D.bankSoal.forEach(s => soalMap[s.id] = s);
@@ -3775,16 +3416,11 @@ function skdRingkas_(rows, ambang) {
           sesiObj = existing;
         } else {
           let order = soalIds.slice();
-          // SKD: urutan subtes TETAP TWK -> TIU -> TKP; acak hanya di dalam tiap subtes
-          const acakSoal = (String(ujian.acak_soal) === 'true' || ujian.acak_soal === true);
-          const kel = { TWK: [], TIU: [], TKP: [], LAIN: [] };
-          order.forEach(sid => { const st = soalMap[sid] ? skdSubtes_(soalMap[sid]) : ''; (kel[st] || kel.LAIN).push(sid); });
-          order = [];
-          ['TWK', 'TIU', 'TKP', 'LAIN'].forEach(k => { order = order.concat(acakSoal ? shuffleSeeded(kel[k], data.siswaId + data.ujianId + k) : kel[k]); });
+          if (String(ujian.acak_soal) === 'true' || ujian.acak_soal === true) order = shuffleSeeded(order, data.siswaId + data.ujianId);
           const opsiAcakMap = {};
           order.forEach(sid => {
             const soal = soalMap[sid];
-            if (soal && (soal.tipe === 'pilihan_ganda' || soal.tipe === 'checkbox' || soal.tipe === 'benar_salah' || soal.tipe === 'tkp')) {
+            if (soal && (soal.tipe === 'pilihan_ganda' || soal.tipe === 'checkbox' || soal.tipe === 'benar_salah')) {
               const opsi = JSON.parse(soal.opsi_json || '[]');
               let idxArr = opsi.map((_, i) => i);
               if (String(ujian.acak_opsi) === 'true' || ujian.acak_opsi === true) idxArr = shuffleSeeded(idxArr, data.siswaId + data.ujianId + sid);
@@ -3804,14 +3440,14 @@ function skdRingkas_(rows, ambang) {
           const s = soalMap[sid];
           if (!s) return null;
           let opsi = null;
-          if (s.tipe === 'pilihan_ganda' || s.tipe === 'checkbox' || s.tipe === 'benar_salah' || s.tipe === 'tkp') {
+          if (s.tipe === 'pilihan_ganda' || s.tipe === 'checkbox' || s.tipe === 'benar_salah') {
             const opsiAsli = JSON.parse(s.opsi_json || '[]');
             const idxOrder = opsiAcakMap[sid] || opsiAsli.map((_, i) => i);
             opsi = idxOrder.map(i => opsiAsli[i]);
           } else if (s.tipe === 'menjodohkan') {
             opsi = JSON.parse(s.opsi_json || '{}');
           }
-          return { id: s.id, tipe: s.tipe, pertanyaan: s.pertanyaan, gambar: s.gambar, opsi, bobot: s.bobot, subtes: skdSubtes_(s) };
+          return { id: s.id, tipe: s.tipe, pertanyaan: s.pertanyaan, gambar: s.gambar, opsi, bobot: s.bobot };
         }).filter(Boolean);
 
         const durasiMs = (Number(ujian.durasi_menit) || 0) * 60000;
@@ -3881,60 +3517,72 @@ function skdRingkas_(rows, ambang) {
         const items = bangunDetailJawaban_(D, sesi);
         const tampilPembahasan = !(ujian && String(ujian.tampil_pembahasan).toLowerCase() === 'false');
         if (!tampilPembahasan && data.siswaId) items.forEach(it => { it.pembahasan = ''; });
-        return { ok: true, judulUjian: ujian ? ujian.judul : '-', nilai: sesi.nilai, lulus: sesi.lulus, skd: skdParse_(sesi.skor_json), items, tampilPembahasan };
+        return { ok: true, judulUjian: ujian ? ujian.judul : '-', nilai: sesi.nilai, lulus: sesi.lulus, items, tampilPembahasan };
       }
-      // ---------- SKD CPNS ----------
-      case 'getUjianSiswa': {
-        const siswa = D.siswa.find(s => String(s.id) === String(data.siswaId));
-        if (!siswa) return { ok: false, error: 'Peserta tidak ditemukan.' };
-        const now = new Date(); const soalMap = {}; D.bankSoal.forEach(s => soalMap[s.id] = s);
-        const list = [];
-        D.ujian.forEach(u => {
-          if (u.status !== 'aktif') return;
-          if (u.mulai && now < new Date(u.mulai)) return;
-          const batas = u.selesai ? new Date(new Date(u.selesai).getTime() + (Number(u.toleransi_menit) || 0) * 60000) : null;
-          if (batas && now > batas) return;
-          const sesi = D.sesi.find(b => b.ujian_id === u.id && String(b.siswa_id) === String(data.siswaId));
-          if (!sesi && !izinKelasLokal_(u, data.siswaId, D).ok) return;
-          const kom = { twk: 0, tiu: 0, tkp: 0, lain: 0 };
-          String(u.soal_ids || '').split(',').filter(Boolean).forEach(sid => { const st = soalMap[sid] ? skdSubtes_(soalMap[sid]).toLowerCase() : ''; if (kom[st] !== undefined) kom[st]++; else kom.lain++; });
-          list.push({ id: u.id, judul: u.judul, deskripsi: u.deskripsi || '', durasi: Number(u.durasi_menit) || 0, mulai: u.mulai || '', selesai: u.selesai || '',
-            komposisi: kom, totalSoal: kom.twk + kom.tiu + kom.tkp + kom.lain, ambang: skdAmbang_(u),
-            status: sesi ? (sesi.status === 'berlangsung' ? 'berlangsung' : 'selesai') : 'belum', sesiId: sesi ? sesi.id : '' });
-        });
-        return { ok: true, data: list };
+      case 'getPaketSurvei': {
+        let l = clone(D.paketSurvei || []);
+        if (data.guruId) l = l.filter(p => String(p.guru_id) === String(data.guruId));
+        return { ok: true, data: l };
       }
-      case 'getRiwayatSkd': { return { ok: true, data: riwayatSiswaLokal_(D, data.siswaId).map(ringkasRiwayatLokal_) }; }
-      case 'getTrenSkd': {
-        const hasil = [];
-        D.ujian.forEach(u => {
-          if (data.guruId && u.guru_id && String(u.guru_id) !== String(data.guruId)) return;
-          let n = 0; const a = { twk: 0, tiu: 0, tkp: 0, total: 0 }; let waktu = '';
-          D.sesi.filter(s => s.ujian_id === u.id && s.status !== 'berlangsung').forEach(s => {
-            const sw = D.siswa.find(x => x.id === s.siswa_id) || {};
-            if (data.kelas && String(sw.kelas || '') !== String(data.kelas)) return;
-            const skd = skdParse_(s.skor_json); if (!skd) return;
-            n++; a.twk += skd.twk; a.tiu += skd.tiu; a.tkp += skd.tkp; a.total += skd.total;
-            const w = s.selesai || s.mulai; if (w && (!waktu || w > waktu)) waktu = w;
-          });
-          if (n) hasil.push({ ujianId: u.id, judul: u.judul, waktu: waktu || u.mulai || '', n, twk: Math.round(a.twk / n * 10) / 10, tiu: Math.round(a.tiu / n * 10) / 10, tkp: Math.round(a.tkp / n * 10) / 10, total: Math.round(a.total / n * 10) / 10 });
-        });
-        hasil.sort((x, y) => new Date(x.waktu) - new Date(y.waktu));
-        return { ok: true, data: hasil };
+      case 'simpanPaketSurvei': {
+        const jn = String(data.jenis || ''); const kt = String(data.kategori || '').trim();
+        if (jn !== 'karakter' && jn !== 'sulingjar') return { ok: false, error: 'Jenis survei tidak dikenali.' };
+        if (!kt) return { ok: false, error: 'Kategori kosong.' };
+        const teksB = String(data.butir || ''); let cB = null;
+        if (teksB.length > 45000) return { ok: false, error: 'Paket survei terlalu besar (maks. 99 butir).' };
+        try { cB = JSON.parse(teksB); } catch (e) { cB = null; }
+        if (!cB || cB.jenis !== jn || !Array.isArray(cB.butir) || cB.butir.length < 5 || cB.butir.length > 99 || !Array.isArray(cB.dim)) return { ok: false, error: 'Isi paket survei tidak valid.' };
+        D.paketSurvei = D.paketSurvei || [];
+        const ix = D.paketSurvei.findIndex(p => String(p.guru_id) === String(data.guruId) && p.jenis === jn && samaTeks_(p.kategori, kt));
+        const baris = { id: ix >= 0 ? D.paketSurvei[ix].id : genId('PS'), guru_id: data.guruId, kategori: kt, jenis: jn, butir_json: teksB, diubah: new Date().toISOString() };
+        if (ix >= 0) D.paketSurvei[ix] = baris; else D.paketSurvei.push(baris);
+        simpan();
+        return { ok: true, id: baris.id };
       }
-      case 'getAnalisisMateri': {
-        const pasangan = riwayatSiswaLokal_(D, data.siswaId).filter(p => !data.ujianId || String(p.ujian.id) === String(data.ujianId));
-        const agg = {}, urut = [];
-        pasangan.forEach(p => {
-          const skd = skdParse_(p.sesi.skor_json); if (!skd || !skd.topik) return;
-          skd.topik.forEach(t => {
-            const k = t.subtes + '|' + t.topik;
-            if (!agg[k]) { agg[k] = { subtes: t.subtes, topik: t.topik, skor: 0, maks: 0, jumlah: 0, benar: 0, kosong: 0 }; urut.push(k); }
-            const x = agg[k]; x.skor += t.skor; x.maks += t.maks; x.jumlah += t.jumlah; x.benar += t.benar || 0; x.kosong += t.kosong || 0;
-          });
-        });
-        const topik = urut.map(k => { const x = agg[k]; x.persen = x.maks > 0 ? Math.round(x.skor / x.maks * 1000) / 10 : 0; return x; });
-        return { ok: true, topik, simulasi: pasangan.length, riwayat: pasangan.map(ringkasRiwayatLokal_) };
+      case 'hapusPaketSurvei': {
+        D.paketSurvei = (D.paketSurvei || []).filter(p => !(String(p.guru_id) === String(data.guruId) && samaTeks_(p.kategori, data.kategori) && (!data.jenis || p.jenis === data.jenis)));
+        simpan();
+        return { ok: true };
+      }
+      case 'getSurveiSesi': {
+        const sesi = D.sesi.find(s => s.id === data.sesiId);
+        if (!sesi) return { ok: false, error: 'Sesi tidak ditemukan.' };
+        if (data.siswaId && String(sesi.siswa_id) !== String(data.siswaId)) return { ok: false, error: 'Sesi ini bukan milik Anda.' };
+        const ujS = D.ujian.find(u => u.id === sesi.ujian_id);
+        const rsG = Survei.setUntukUjian(ujS, D.paketSurvei); const jenisG = rsG.jenis;
+        const rowSv = (D.survei || []).filter(x => x.sesi_id === sesi.id)[0];
+        const tampilG = !!ujS && String(ujS.survei_tampil) === 'true';
+        const out = { ok: true, jenis: jenisG, set: rsG.set, sudah: !!rowSv, tampilHasil: tampilG };
+        if (rowSv && tampilG) { try { out.jawaban = JSON.parse(rowSv.jawaban_json || '{}'); out.kualitas = JSON.parse(rowSv.kualitas_json || '{}'); } catch (e) { } }
+        return out;
+      }
+      case 'simpanSurvei': {
+        const sesi = D.sesi.find(s => s.id === data.sesiId);
+        if (!sesi) return { ok: false, error: 'Sesi tidak ditemukan.' };
+        if (String(sesi.siswa_id) !== String(data.siswaId)) return { ok: false, error: 'Sesi ini bukan milik Anda.' };
+        if (sesi.status === 'berlangsung') return { ok: false, error: 'Selesaikan ujian dulu sebelum mengisi survei.' };
+        const ujS = D.ujian.find(u => u.id === sesi.ujian_id);
+        const jenisS = Survei.jenisUntukUjian(ujS, D.paketSurvei);
+        if (!jenisS) return { ok: false, error: 'Survei tidak diaktifkan untuk ujian ini.' };
+        if ((D.survei || []).some(x => x.sesi_id === sesi.id)) return { ok: true, sudah: true };
+        D.survei = D.survei || [];
+        D.survei.push({ id: genId('SV'), sesi_id: sesi.id, siswa_id: sesi.siswa_id, ujian_id: sesi.ujian_id, jenis: jenisS, jawaban_json: String(data.jawaban || '{}'), durasi_detik: Number(data.durasiDetik) || 0, kualitas_json: String(data.kualitas || '{}'), waktu: new Date().toISOString() });
+        simpan();
+        return { ok: true };
+      }
+      case 'getRekapSurvei': {
+        const ujS = D.ujian.find(u => u.id === data.ujianId);
+        if (!ujS) return { ok: false, error: 'Ujian tidak ditemukan.' };
+        const rsS = Survei.setUntukUjian(ujS, D.paketSurvei); const jenisS = rsS.jenis;
+        const smap = {}; D.siswa.forEach(x => { smap[x.id] = x; });
+        const baris = (D.survei || []).filter(x => x.ujian_id === ujS.id).map(x => {
+          const sw = smap[x.siswa_id] || {};
+          let jw = {}, kq = {}; try { jw = JSON.parse(x.jawaban_json || '{}'); } catch (e) { } try { kq = JSON.parse(x.kualitas_json || '{}'); } catch (e) { }
+          return { sesiId: x.sesi_id, siswaId: x.siswa_id, nama: sw.nama || '(tidak dikenal)', kelas: sw.kelas || '-', waktu: x.waktu, durasi: Number(x.durasi_detik) || 0, jawaban: jw, kualitas: kq };
+        }).sort((a, b) => String(a.kelas).localeCompare(String(b.kelas)) || String(a.nama).localeCompare(String(b.nama)));
+        const sudahSet = new Set((D.survei || []).filter(x => x.ujian_id === ujS.id).map(x => x.sesi_id));
+        const belum = D.sesi.filter(x => x.ujian_id === ujS.id && x.status !== 'berlangsung' && !sudahSet.has(x.id)).length;
+        return { ok: true, jenis: jenisS, set: rsS.set, data: baris, belum };
       }
       case 'getHasil': {
         const sesi = D.sesi.find(s => s.id === data.sesiId);
@@ -3942,7 +3590,6 @@ function skdRingkas_(rows, ambang) {
         const ujian = D.ujian.find(u => u.id === sesi.ujian_id);
         return {
           ok: true, selesai: sesi.status !== 'berlangsung', nilai: sesi.nilai, lulus: sesi.lulus, pelanggaran: sesi.pelanggaran,
-          skd: skdParse_(sesi.skor_json), ujianId: sesi.ujian_id, selesaiPada: sesi.selesai,
           judulUjian: ujian ? ujian.judul : '-',
           pesanNilai: ujian && ujian.pesan_nilai ? ujian.pesan_nilai : '',
           tampilDetail: !(ujian && String(ujian.tampil_detail) === 'false'),
@@ -3960,24 +3607,7 @@ function skdRingkas_(rows, ambang) {
 // ----------------------------------------------------------------------------
 // TEMA
 // ----------------------------------------------------------------------------
-const NAMA_APLIKASI_BAWAAN = 'Simulasi CAT SKD CPNS';
-// Ambang batas SKD CPNS (acuan formulir ujian). Aturan penilaian ada di blok SKD (LocalBackend) & Code.gs.
-const SKD_PRESET = {
-  umum: { nama: 'Formasi Umum', twk: 65, tiu: 80, tkp: 166, total: 311 },
-  disabilitas: { nama: 'Penyandang Disabilitas / Putra-Putri Papua', twk: 0, tiu: 60, tkp: 0, total: 286 },
-  cumlaude: { nama: 'Lulusan Terbaik (Cumlaude) / Diaspora', twk: 0, tiu: 85, tkp: 0, total: 311 },
-  dokter: { nama: 'Formasi Dokter', twk: 0, tiu: 80, tkp: 0, total: 311 },
-  abk: { nama: 'ABK / Rescuer / Pengamat Gunung Api', twk: 0, tiu: 70, tkp: 0, total: 286 }
-};
-function skdSubtes_(soal) { // sama dengan blok SKD di LocalBackend / Code.gs
-  { const sub = String((soal && soal.subtes) || '').trim().toUpperCase(); if (sub === 'TWK' || sub === 'TIU' || sub === 'TKP') return sub; } // subtes yang ditetapkan pada soal diutamakan
-  const t = (String((soal && soal.subtes) || '') + ' ' + String((soal && soal.kategori) || '')).toLowerCase();
-  if (/(^|[^a-z])tkp([^a-z]|$)|karakteristik pribadi/.test(t)) return 'TKP';
-  if (/(^|[^a-z])tiu([^a-z]|$)|inteleg|intelijensi|inteligensi/.test(t)) return 'TIU';
-  if (/(^|[^a-z])twk([^a-z]|$)|wawasan kebangsaan/.test(t)) return 'TWK';
-  if (soal && soal.tipe === 'tkp') return 'TKP';
-  return '';
-}
+const NAMA_APLIKASI_BAWAAN = 'ANBK SMP Negeri 2 Seririt';
 // ----------------------------------------------------------------------------
 // IDENTITAS APLIKASI (Logo & Nama CBT)
 // ----------------------------------------------------------------------------
@@ -4050,7 +3680,7 @@ const Auth = {
         Guru.init();
         pemanasanPustakaGuru_();
       } else {
-        Skd.tampilDaftar();
+        Anbk.tampilKonfirmasiData();
         Siswa.terapkanStatusBlokir(res.user.blokir);
         Siswa.mulaiPing();
         BuktiUI.pulihkanTertunda(); // login ulang saat masih punya unggahan bukti tertunda -> langsung kembali ke halaman unggah
@@ -4094,7 +3724,7 @@ const Auth = {
         document.getElementById('guru-nama-label').textContent = user.nama; const gbn2 = document.getElementById('guru-band-nama'); if (gbn2) gbn2.textContent = user.nama;
         Guru.init();
       } else {
-        Skd.tampilDaftar();
+        Anbk.tampilKonfirmasiData();
         Siswa.terapkanStatusBlokir(user.blokir);
         Siswa.mulaiPing();
         BuktiUI.pulihkanTertunda(); // halaman dimuat ulang saat masih di langkah unggah bukti -> kembali ke sana
@@ -4115,17 +3745,12 @@ const Auth = {
 // ----------------------------------------------------------------------------
 function rtTampilkanRumus_(el) {
   if (!el || !window.renderMathInElement) return;
-  try { renderMathInElement(el, OPSI_RUMUS_); } catch (e) { return; }
-  el.querySelectorAll('.katex, .katex-display').forEach(k => { k.setAttribute('contenteditable', 'false'); k.setAttribute('title', 'Klik 2x untuk mengubah rumus'); });
+  try { renderMathInElement(el, { delimiters: [{ left: '$', right: '$', display: false }], throwOnError: false }); } catch (e) { return; }
+  el.querySelectorAll('.katex').forEach(k => { k.setAttribute('contenteditable', 'false'); k.setAttribute('title', 'Klik 2x untuk mengubah rumus'); });
 }
 // Isi kotak editor -> HTML siap simpan (rumus yang sudah dirender dikembalikan jadi "$LaTeX$").
 function rtHtmlSerial_(el) {
   const salin = el.cloneNode(true);
-  // rumus blok ($$...$$) dikembalikan dulu, supaya tidak berubah jadi rumus sebaris
-  salin.querySelectorAll('.katex-display').forEach(d => {
-    const ann = d.querySelector('annotation[encoding="application/x-tex"]');
-    d.replaceWith(document.createTextNode(ann ? '$$' + ann.textContent + '$$' : (d.textContent || '')));
-  });
   salin.querySelectorAll('.katex').forEach(k => {
     const ann = k.querySelector('annotation[encoding="application/x-tex"]');
     k.replaceWith(document.createTextNode(ann ? '$' + ann.textContent + '$' : (k.textContent || '')));
@@ -4188,84 +3813,20 @@ const UI = {
   async rtRumus() {
     if (!UI.rtPulihkanSeleksi()) { toast('Klik dulu ke kotak Pertanyaan/Opsi yang ingin disisipi rumus.', 'error'); return; }
     const rentang = UI._rtRange, sasaran = UI._rtEditable;
-    const hasil = await UI.dialogRumus({ judul: 'Sisipkan Rumus', teksYa: 'Sisipkan' });
+    const formula = await Dialog.input({
+      judul: 'Sisipkan Rumus', ikon: 'fa-square-root-variable',
+      pesan: 'Tulis rumus dalam format **LaTeX** (tanpa tanda $). Rumus akan tampil rapi di soal.',
+      label: 'Rumus (LaTeX)', placeholder: 'x^2 + 1 = 0', teksYa: 'Sisipkan', wajib: true, pesanWajib: 'Tulis rumusnya dulu.',
+      chips: [
+        { label: 'pecahan', nilai: '\\frac{a}{b}', sisip: true }, { label: 'pangkat', nilai: 'x^{2}', sisip: true },
+        { label: 'akar', nilai: '\\sqrt{x}', sisip: true }, { label: 'π', nilai: '\\pi', sisip: true }
+      ]
+    });
     UI._rtRange = rentang; UI._rtEditable = sasaran; UI.rtPulihkanSeleksi(); // fokus berpindah ke dialog -> pulihkan posisi kursor
-    if (!hasil || !hasil.tex.trim()) return;
-    const tex = hasil.tex.trim();
-    try { document.execCommand('insertText', false, hasil.blok ? `$$${tex}$$` : `$${tex}$`); } catch (e) {}
+    if (!formula) return;
+    try { document.execCommand('insertText', false, `$${formula}$`); } catch (e) {}
     if (UI._rtEditable) rtRenderUlang_(UI._rtEditable);
     UI._rtRange = null;
-  },
-  // Dialog rumus: kotak LaTeX + PRATINJAU langsung (persis seperti tampilan di soal) + tombol simbol cepat.
-  // Mengembalikan { tex, blok } | { hapus: true } | null (batal).
-  dialogRumus(o) {
-    o = o || {};
-    const GRUP = [
-      ['Dasar', [['a⁄b', '\\frac{a}{b}'], ['x²', 'x^{2}'], ['xₙ', 'x_{n}'], ['√', '\\sqrt{x}'], ['ⁿ√', '\\sqrt[n]{x}'], ['( )', '\\left( x \\right)'], ['|x|', '\\left| x \\right|']]],
-      ['Operator', [['×', '\\times'], ['÷', '\\div'], ['±', '\\pm'], ['≤', '\\leq'], ['≥', '\\geq'], ['≠', '\\neq'], ['≈', '\\approx'], ['∞', '\\infty'], ['%', '\\%'], ['°', '^{\\circ}']]],
-      ['Huruf', [['π', '\\pi'], ['α', '\\alpha'], ['β', '\\beta'], ['θ', '\\theta'], ['Δ', '\\Delta'], ['λ', '\\lambda']]],
-      ['Fungsi', [['∑', '\\sum_{i=1}^{n}'], ['∫', '\\int_{a}^{b}'], ['log', '\\log_{2}'], ['sin', '\\sin'], ['cos', '\\cos'], ['tan', '\\tan'], ['lim', '\\lim_{x \\to 0}']]],
-      ['Himpunan & logika', [['∈', '\\in'], ['∪', '\\cup'], ['∩', '\\cap'], ['⊂', '\\subset'], ['∅', '\\emptyset'], ['→', '\\rightarrow'], ['⇒', '\\Rightarrow']]]
-    ];
-    return new Promise(resolve => {
-      const lama = document.getElementById('modal-rumus'); if (lama) lama.remove();
-      const bg = document.createElement('div');
-      bg.id = 'modal-rumus'; bg.className = 'modal-backdrop rumus-bg';
-      bg.innerHTML = `<div class="modal rumus-modal" role="dialog" aria-modal="true" aria-label="${escapeHtml_(o.judul || 'Rumus')}">
-        <h3><i class="fa-solid fa-square-root-variable"></i> ${escapeHtml_(o.judul || 'Rumus')}</h3>
-        <p class="subtitle" style="margin-top:-.4rem">Klik simbol di bawah atau ketik langsung dalam format LaTeX (tanpa tanda $). Pratinjau tampil seperti di soal.</p>
-        <div class="rumus-palet">${GRUP.map(g => `<div class="rumus-grup"><span>${g[0]}</span>${g[1].map((c, i) => `<button type="button" class="rumus-chip" data-snip="${escapeHtml_(c[1]).replace(/"/g, '&quot;')}" title="${escapeHtml_(c[1])}">${escapeHtml_(c[0])}</button>`).join('')}</div>`).join('')}</div>
-        <label class="rumus-lbl" for="rumus-tex">Rumus (LaTeX)</label>
-        <textarea id="rumus-tex" rows="3" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="mis. \\frac{1}{2} + \\frac{1}{3}"></textarea>
-        <label class="rumus-blok"><input type="checkbox" id="rumus-blok"> Tampilkan di baris sendiri (besar &amp; rata tengah)</label>
-        <div class="rumus-lbl">Pratinjau</div>
-        <div id="rumus-pratinjau" class="rumus-pratinjau"></div>
-        <div id="rumus-galat" class="rumus-galat"></div>
-        <div class="modal-close-row" style="justify-content:space-between">
-          <div>${o.bisaHapus ? '<button type="button" class="danger small" id="rumus-hapus">Hapus Rumus</button>' : ''}</div>
-          <div style="display:flex;gap:.5rem"><button type="button" class="secondary" id="rumus-batal">Batal</button><button type="button" class="accent" id="rumus-ya">${escapeHtml_(o.teksYa || 'Simpan')}</button></div>
-        </div>
-      </div>`;
-      document.body.appendChild(bg);
-      const ta = bg.querySelector('#rumus-tex'), cekBlok = bg.querySelector('#rumus-blok'), pra = bg.querySelector('#rumus-pratinjau'), galat = bg.querySelector('#rumus-galat');
-      ta.value = o.nilai || ''; cekBlok.checked = !!o.blok;
-      const segarkan = () => {
-        const tex = ta.value.trim(); galat.textContent = '';
-        if (!tex) { pra.innerHTML = '<span class="rumus-kosong">Pratinjau rumus akan muncul di sini.</span>'; return; }
-        if (!window.katex) { pra.textContent = tex; galat.textContent = 'Pratinjau belum siap (KaTeX masih dimuat) — rumus tetap bisa disisipkan.'; return; }
-        const opsi = { displayMode: cekBlok.checked, throwOnError: true, strict: 'ignore' };
-        try { pra.innerHTML = katex.renderToString(tex, opsi); }
-        catch (e) {
-          galat.textContent = 'Rumus belum valid: ' + String(e && e.message || e).replace(/^KaTeX parse error:\s*/i, '');
-          try { pra.innerHTML = katex.renderToString(tex, { displayMode: cekBlok.checked, throwOnError: false, strict: 'ignore' }); } catch (x) { pra.textContent = tex; }
-        }
-      };
-      const tutup = (nilai) => { document.removeEventListener('keydown', tombol, true); bg.remove(); resolve(nilai); };
-      const ya = () => { tutup({ tex: ta.value, blok: cekBlok.checked }); };
-      const tombol = (ev) => {
-        if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); tutup(null); }
-        else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); ev.stopPropagation(); ya(); }
-      };
-      document.addEventListener('keydown', tombol, true);
-      ta.addEventListener('input', segarkan); cekBlok.addEventListener('change', segarkan);
-      bg.querySelectorAll('.rumus-chip').forEach(b => b.addEventListener('mousedown', ev => ev.preventDefault())); // jaga fokus & posisi kursor di kotak teks
-      bg.querySelectorAll('.rumus-chip').forEach(b => b.addEventListener('click', () => {
-        const snip = b.getAttribute('data-snip');
-        const a = ta.selectionStart || 0, z = ta.selectionEnd || 0;
-        const pilih = ta.value.slice(a, z);
-        let sisip = snip;
-        if (pilih && /\{[a-z]\}|\{x\}/.test(snip)) sisip = snip.replace(/\{[a-z]\}/, '{' + pilih + '}'); // teks yang disorot masuk ke kurung pertama
-        ta.value = ta.value.slice(0, a) + sisip + ta.value.slice(z);
-        const i = sisip.indexOf('{'), j = i >= 0 ? sisip.indexOf('}', i) : -1;
-        ta.focus();
-        if (!pilih && i >= 0 && j > i) ta.setSelectionRange(a + i + 1, a + j); else ta.setSelectionRange(a + sisip.length, a + sisip.length);
-        segarkan();
-      }));
-      bg.querySelector('#rumus-batal').addEventListener('click', () => tutup(null));
-      bg.querySelector('#rumus-ya').addEventListener('click', ya);
-      const bh = bg.querySelector('#rumus-hapus'); if (bh) bh.addEventListener('click', () => tutup({ hapus: true }));
-      segarkan(); setTimeout(() => { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 30);
-    });
   },
   // Sisip gambar LANGSUNG di tengah teks pertanyaan/opsi (beda dari kotak upload
   // "Gambar Soal" di bawah, yang selalu tampil di bawah pertanyaan). Dipakai lewat
@@ -4355,7 +3916,7 @@ const UI = {
   },
 
   tampilkan(idLayar) {
-    ['login-screen', 'guru-portal', 'daftar-screen', 'info-screen', 'ujian-screen', 'bukti-screen', 'hasil-skd-screen', 'dash-screen', 'detail-screen'].forEach(id => {
+    ['login-screen', 'guru-portal', 'siswa-portal', 'tes-konfirmasi-screen', 'ujian-screen', 'bukti-screen', 'survei-screen', 'hasil-screen', 'detail-screen'].forEach(id => {
       document.getElementById(id).classList.toggle('hidden', id !== idLayar);
     });
   },
@@ -4370,11 +3931,9 @@ const UI = {
     document.querySelectorAll('#bottom-nav-guru button').forEach(b => b.classList.toggle('active', adaDiBar ? b.dataset.tab === tabId : b.dataset.tab === 'menu'));
     const mainEl = document.querySelector('#guru-portal .main'); if (mainEl) mainEl.scrollTop = 0; window.scrollTo(0, 0);
     document.querySelectorAll('#guru-portal .main > section').forEach(s => s.classList.toggle('hidden', s.id !== tabId));
-    if (tabId === 'tab-dashboard') { Guru.muatDashboard(); if (typeof Skd !== 'undefined' && Skd.muatTrenDashboard) Skd.muatTrenDashboard(); }
-    if (tabId === 'tab-materi' && typeof Skd !== 'undefined' && Skd.muatTabMateri) Skd.muatTabMateri();
+    if (tabId === 'tab-dashboard') Guru.muatDashboard();
     if (tabId === 'tab-bank-soal') Guru.muatBankSoal();
     if (tabId === 'tab-ujian') Guru.muatDaftarUjian();
-    if (tabId === 'tab-leaderboard') Guru.bukaTabLeaderboard();
     if (tabId === 'tab-rekap') Guru.muatPilihanUjianUntukSelect('pilih-ujian-rekap');
     if (tabId === 'tab-analisis') Guru.muatPilihanUjianUntukSelect('pilih-ujian-analisis');
     if (tabId === 'tab-pelanggaran') Guru.muatPilihanUjianUntukSelect('pilih-ujian-log');
@@ -4510,7 +4069,6 @@ const UI = {
     document.getElementById('soal-pertanyaan-toolbar').innerHTML = UI.htmlRichToolbar(false);
     document.getElementById('soal-kategori').value = soal ? soal.kategori : (state.guru.kategoriKelola || 'Kuis');
     document.getElementById('soal-subkategori').value = soal && soal.subkategori ? soal.subkategori : '';
-    { const sb = document.getElementById('soal-subtes'); if (sb) sb.value = soal ? (soal.subtes || '') : (skdSubtes_({ kategori: state.guru.kategoriKelola || '' }) || ''); }
     document.getElementById('soal-topik').value = soal && soal.topik ? soal.topik : '';
     document.getElementById('soal-tipe').value = soal ? soal.tipe : (tipePraset || state.guru.tipeTabKelola || 'pilihan_ganda');
     document.getElementById('soal-pertanyaan').innerHTML = soal ? kontenSoalHtml(soal.pertanyaan) : '';
@@ -4518,7 +4076,7 @@ const UI = {
     document.getElementById('soal-pembahasan-toolbar').innerHTML = UI.htmlRichToolbar(false);
     document.getElementById('soal-pembahasan').innerHTML = soal && soal.pembahasan ? kontenSoalHtml(soal.pembahasan) : '';
     rtTampilkanRumus_(document.getElementById('soal-pembahasan'));
-    document.getElementById('soal-bobot').value = soal ? soal.bobot : 5;
+    document.getElementById('soal-bobot').value = soal ? soal.bobot : 10;
     document.getElementById('soal-tingkat-kesulitan').value = soal && soal.tingkat_kesulitan ? soal.tingkat_kesulitan : 'sedang';
     ['gambar', 'audio', 'video'].forEach(jenis => {
       document.getElementById(`soal-${jenis}-url`).value = soal && soal[jenis] ? soal[jenis] : '';
@@ -4558,19 +4116,19 @@ const UI = {
       kunci = parseKunciJson_(soal.kunci_json);
     }
 
-    if (tipe === 'pilihan_ganda' || tipe === 'checkbox' || tipe === 'benar_salah' || tipe === 'tkp') {
-      const list = opsi || (tipe === 'benar_salah' ? ['Benar', 'Salah'] : (tipe === 'tkp' ? ['', '', '', '', ''] : ['', '', '', '']));
+    if (tipe === 'pilihan_ganda' || tipe === 'checkbox' || tipe === 'benar_salah') {
+      const list = opsi || (tipe === 'benar_salah' ? ['Benar', 'Salah'] : ['', '', '', '']);
       const bisaHapusTambah = tipe !== 'benar_salah';
       let html = `<div class="opsi-jawaban-header">
         <div>
           <label style="margin-bottom:.1rem">OPSI JAWABAN</label>
-          <span class="subtitle" style="display:block;margin:0">${tipe === 'tkp' ? 'Beri SKOR 1–5 pada setiap opsi (5 = paling tepat)' : (tipe === 'checkbox' ? 'Pilih kunci jawaban (bisa lebih dari satu)' : 'Pilih satu kunci jawaban')}</span>
+          <span class="subtitle" style="display:block;margin:0">${tipe === 'checkbox' ? 'Pilih kunci jawaban (bisa lebih dari satu)' : 'Pilih satu kunci jawaban'}</span>
         </div>
         <span class="badge umum" id="opsi-counter">${list.length}/8 opsi</span>
       </div>`;
       list.forEach((item, i) => {
         const o = (item && typeof item === 'object') ? item : { teks: item || '', gambar: '' };
-        const checked = tipe === 'tkp' ? ((Array.isArray(kunci) && Number(kunci[i])) || 0) : (tipe === 'checkbox' ? (Array.isArray(kunci) && kunci.includes(i)) : (kunci !== null && kunci !== undefined && kunci !== '' && Number(kunci) === i));
+        const checked = tipe === 'checkbox' ? (Array.isArray(kunci) && kunci.includes(i)) : (kunci !== null && kunci !== undefined && kunci !== '' && Number(kunci) === i);
         html += UI.htmlBarisOpsi(i, o, tipe, checked, bisaHapusTambah);
       });
       if (bisaHapusTambah) html += `<button type="button" class="secondary small" id="btn-tambah-opsi" onclick="UI.tambahOpsiKosong()">+ Tambah Opsi</button>`;
@@ -4611,9 +4169,7 @@ const UI = {
           ${UI.htmlRichToolbar(true)}
           <div class="rich-editable opsi-teks-rich" contenteditable="true" data-placeholder="Opsi ${huruf}">${teksHtml}</div>
         </div>
-        ${tipe === 'tkp'
-          ? `<select class="tkp-skor" title="Skor opsi ini (1-5)" style="width:auto;min-width:64px">${[1, 2, 3, 4, 5].map(v => `<option value="${v}" ${Number(checked) === v ? 'selected' : ''}>${v} poin</option>`).join('')}</select>`
-          : `<input type="${tipe === 'checkbox' ? 'checkbox' : 'radio'}" name="opsi-benar" value="${i}" title="Tandai sebagai kunci jawaban" ${checked ? 'checked' : ''} onchange="UI.tandaiOpsiBenar(this)">`}
+        <input type="${tipe === 'checkbox' ? 'checkbox' : 'radio'}" name="opsi-benar" value="${i}" title="Tandai sebagai kunci jawaban" ${checked ? 'checked' : ''} onchange="UI.tandaiOpsiBenar(this)">
         ${bisaHapus ? `<button type="button" class="opsi-hapus-x" title="Hapus opsi ini" onclick="UI.hapusOpsi(this)">✕</button>` : ''}
       </div>
       <div class="opsi-row-gambar">
@@ -4715,43 +4271,29 @@ const UI = {
     }
     kategoriSel.value = ujian ? ujian.kategori : (kategoriSel.options[0] ? kategoriSel.options[0].value : '');
     document.getElementById('ujian-subkategori').value = ujian && ujian.subkategori ? ujian.subkategori : '';
-    document.getElementById('ujian-durasi').value = ujian ? ujian.durasi_menit : 100;
+    document.getElementById('ujian-durasi').value = ujian ? ujian.durasi_menit : 60;
     document.getElementById('ujian-toleransi').value = ujian ? ujian.toleransi_menit : 10;
-    { let amb = null; try { amb = ujian && ujian.ambang_json ? JSON.parse(ujian.ambang_json) : null; } catch (e) { amb = null; } const p = SKD_PRESET[(amb && amb.formasi)] || SKD_PRESET.umum;
-      document.getElementById('ujian-formasi').value = (amb && SKD_PRESET[amb.formasi]) ? amb.formasi : 'umum';
-      document.getElementById('ujian-amb-twk').value = amb ? amb.twk : p.twk; document.getElementById('ujian-amb-tiu').value = amb ? amb.tiu : p.tiu;
-      document.getElementById('ujian-amb-tkp').value = amb ? amb.tkp : p.tkp; document.getElementById('ujian-amb-total').value = amb ? amb.total : p.total; }
+    document.getElementById('ujian-kkm').value = ujian ? ujian.nilai_lulus : 75;
     document.getElementById('ujian-max-pelanggaran').value = ujian ? ujian.max_pelanggaran : 3;
     document.getElementById('ujian-mulai').value = ujian && ujian.mulai ? ujian.mulai.slice(0, 16) : '';
     document.getElementById('ujian-selesai').value = ujian && ujian.selesai ? ujian.selesai.slice(0, 16) : '';
     document.getElementById('ujian-acak-soal').checked = ujian ? (String(ujian.acak_soal) === 'true') : true;
-    document.getElementById('ujian-acak-opsi').checked = ujian ? (String(ujian.acak_opsi) === 'true') : false;
+    document.getElementById('ujian-acak-opsi').checked = ujian ? (String(ujian.acak_opsi) === 'true') : true;
     document.getElementById('ujian-instruksi-remedial').value = ujian && ujian.instruksi_remedial ? ujian.instruksi_remedial : '';
     document.getElementById('ujian-tampil-detail').checked = ujian ? (String(ujian.tampil_detail) !== 'false') : true;
     document.getElementById('ujian-tampil-pembahasan').checked = ujian ? (String(ujian.tampil_pembahasan).toLowerCase() !== 'false') : true;
     document.getElementById('ujian-bukti-orek').value = ujian && ujian.bukti_orek ? ujian.bukti_orek : '';
+    document.getElementById('ujian-survei').value = ujian ? (ujian.survei || '') : 'auto'; // ujian baru: otomatis (Numerasi -> Survei Karakter, Literasi -> Sulingjar)
+    document.getElementById('ujian-survei-tampil').checked = ujian ? (String(ujian.survei_tampil) === 'true') : true; // ujian baru: nilai survei tampil ke siswa (latihan)
     { const fa = document.getElementById('field-token-awal'); if (fa) fa.style.display = ujian ? 'none' : ''; const ta = document.getElementById('ujian-token-awal'); if (ta) ta.value = ''; }
+    Survei.setDraft(ujian ? (ujian.survei_butir || '') : '');
+    if (surveiAda_('muatPaket')) Promise.resolve(Survei.muatPaket()).then(() => Survei.statusForm()).catch(() => { });
     Guru.sinkronDetailPembahasan();
     Guru.muatEditorPesanNilai(ujian && ujian.pesan_nilai);
-    { // jumlah soal yang DIMINTA per subtes: ujian baru = standar resmi; ujian lama = nilai yang tersimpan
-      let amb2 = null; try { amb2 = ujian && ujian.ambang_json ? JSON.parse(ujian.ambang_json) : null; } catch (e) { amb2 = null; }
-      const tg = amb2 && amb2.target;
-      document.getElementById('ujian-n-twk').value = tg ? (Number(tg.twk) || 0) : 30;
-      document.getElementById('ujian-n-tiu').value = tg ? (Number(tg.tiu) || 0) : 35;
-      document.getElementById('ujian-n-tkp').value = tg ? (Number(tg.tkp) || 0) : 45;
-      Guru._ujianLamaTanpaTarget = !!(ujian && !tg);
-      Guru._sumberUjian = (amb2 && amb2.sumber) ? String(amb2.sumber) : '';
-      Guru._nSebelum = { TWK: Number(document.getElementById('ujian-n-twk').value) || 0, TIU: Number(document.getElementById('ujian-n-tiu').value) || 0, TKP: Number(document.getElementById('ujian-n-tkp').value) || 0 };
-    }
     // null (bukan array kosong) khusus menandai "ujian baru, belum ada
     // pilihan tersimpan" -> semua soal yang cocok otomatis tercentang.
     // Ujian yang sedang diubah selalu punya minimal 1 soal_ids tersimpan.
     await Guru.muatPilihanSoalUntukUjian(ujian ? String(ujian.soal_ids || '').split(',').filter(Boolean) : null);
-    if (Guru._ujianLamaTanpaTarget) { // ujian lama belum menyimpan jumlah yang diminta -> samakan dengan isinya sekarang
-      const n = Guru._terpilihSkd();
-      document.getElementById('ujian-n-twk').value = n.TWK; document.getElementById('ujian-n-tiu').value = n.TIU; document.getElementById('ujian-n-tkp').value = n.TKP;
-      Guru.hitungPilihSkd();
-    }
     document.getElementById('modal-ujian').classList.remove('hidden');
   },
 
@@ -4761,9 +4303,10 @@ const UI = {
     document.getElementById('siswa-edit-password').value = siswa.password;
     document.getElementById('siswa-edit-nama').value = siswa.nama;
     document.getElementById('siswa-edit-kelas').value = siswa.kelas;
+    document.getElementById('siswa-edit-nisn').value = siswa.nisn || '';
     document.getElementById('siswa-edit-jk').value = siswa.jenis_kelamin || '';
     document.getElementById('siswa-edit-tempat').value = siswa.tempat_lahir || '';
-    document.getElementById('siswa-edit-tgl').value = Skd.isoTgl(siswa.tanggal_lahir);
+    document.getElementById('siswa-edit-tgl').value = Anbk.isoTgl(siswa.tanggal_lahir);
     document.getElementById('modal-siswa').classList.remove('hidden');
   },
 
@@ -4772,7 +4315,7 @@ const UI = {
   kembaliKeBerandaSiswa() {
     document.getElementById('konfirmasi-ujian').classList.add('hidden');
     document.getElementById('input-token-ujian').value = '';
-    Skd.tampilDaftar();
+    UI.tampilkan('siswa-portal');
   }
 };
 
@@ -5071,7 +4614,8 @@ const Guru = {
   async muatBankSoal() {
     const [res, resUjian] = await Promise.all([
       api('getBankSoal', { guruId: state.user.id }),
-      api('getDaftarUjian', { guruId: state.user.id })
+      api('getDaftarUjian', { guruId: state.user.id }),
+      surveiAda_('muatPaket') ? Promise.resolve(Survei.muatPaket(true)).catch(() => null) : null
     ]);
     const cont = document.getElementById('daftar-bank-soal');
     if (!res.ok) return gagalMuat_(cont, 'Gagal memuat: ' + res.error);
@@ -5110,10 +4654,9 @@ const Guru = {
     semua.forEach(s => {
       const k = s.kategori || '(tanpa kategori)';
       const arsip = (s.status || 'aktif') === 'arsip';
-      peta[k] = peta[k] || { total: 0, arsip: 0, st: { TWK: 0, TIU: 0, TKP: 0 } };
+      peta[k] = peta[k] || { total: 0, arsip: 0 };
       peta[k].total++;
       if (arsip) peta[k].arsip++;
-      else { const st = skdSubtes_(s); if (st) peta[k].st[st]++; }
     });
     // Mapel yang SELURUH soalnya sudah diarsipkan (0 soal aktif) tidak lagi
     // ditampilkan di grid utama -- tetap bisa ditemukan & dikembalikan lewat
@@ -5133,16 +4676,16 @@ const Guru = {
       const jumlahAktif = peta[k].total - peta[k].arsip;
       return `
       <div class="mapel-card" style="--mapel-warna:${meta.warna}">
-        ${k === '(tanpa kategori)' ? '' : `<button type="button" class="mapel-card-hapus mapel-card-ubah" title="Ubah nama Mapel / Kategori ini" onclick="event.stopPropagation();Guru.ubahNamaKategori('${escapeHtml_(k).replace(/'/g, "\\'")}')"><i class="fa-solid fa-pen"></i></button>`}
+        <button type="button" class="mapel-card-hapus mapel-card-ubah" title="Ubah nama Mapel ini (mis. Literasi menjadi Literasi 1)" onclick="event.stopPropagation();Guru.ubahNamaKategori('${escapeHtml_(k).replace(/'/g, "\\'")}')">✏️</button>
         <button type="button" class="mapel-card-hapus" title="Arsipkan seluruh soal Mapel ini" onclick="event.stopPropagation();Guru.hapusKategoriSoal('${escapeHtml_(k).replace(/'/g, "\\'")}')">🗑</button>
         <div class="mapel-card-ico">💡</div>
         <div class="mapel-card-badges">
           <span class="badge token">TOKEN: ${meta.token}</span>
           <span class="badge umum">UMUM</span>
+          ${surveiAda_('badgePaket') ? Survei.badgePaket(k) : ''}
         </div>
         <div class="mapel-card-judul">${escapeHtml_(labelKategori(k))}</div>
         <div class="mapel-card-jumlah">Total Soal: <strong>${jumlahAktif}</strong>${peta[k].arsip ? ` <span class="subtitle" style="display:inline">(+${peta[k].arsip} arsip)</span>` : ''}</div>
-        ${peta[k].st && Object.values(peta[k].st).filter(v => v > 0).length >= 2 ? `<div class="mapel-card-subtes">${['TWK', 'TIU', 'TKP'].filter(x => peta[k].st[x]).map(x => `<span>${x} ${peta[k].st[x]}</span>`).join('')}</div>` : ''}
         <div class="mapel-card-aksi">
           <button type="button" class="accent small" style="flex:1" onclick="Guru.bukaKelolaSoal('${escapeHtml_(k).replace(/'/g, "\\'")}')">Kelola Soal</button>
           <button type="button" class="secondary small icon" title="Pratinjau seluruh soal Mapel ini (tampilan sama persis dengan siswa)" onclick="event.stopPropagation();Guru.pratinjauKategoriSoal('${escapeHtml_(k).replace(/'/g, "\\'")}')">👁</button>
@@ -5154,85 +4697,6 @@ const Guru = {
         <div class="mapel-card-add-ico">+</div>
         <div class="mapel-card-add-label">Tambah Mapel Baru</div>
       </div>`;
-  },
-
-  // Ubah nama Mapel / Kategori: seluruh soalnya dipindahkan ke nama baru (bila nama baru sudah ada -> digabung).
-  async ubahNamaKategori(lama) {
-    const baru0 = await Dialog.input({
-      judul: 'Ubah Nama Mapel / Kategori', ikon: 'fa-pen',
-      pesan: `Nama baru untuk **${labelKategori(lama)}**. Seluruh soal di dalamnya ikut dipindahkan.`,
-      label: 'Nama baru', nilai: lama, maksimal: 60, wajib: true, pesanWajib: 'Nama tidak boleh kosong.', teksYa: 'Simpan Nama'
-    });
-    if (baru0 === null || baru0 === undefined) return;
-    const baru = String(baru0).trim();
-    if (!baru || baru === lama) return;
-    const bank = state.guru.bankSoal || [];
-    const adaSoal = bank.some(x => samaTeks_(x.kategori, lama));
-    // Nama lama memuat TWK/TIU/TKP -> subtes disimpan pada tiap soal sebelum nama diganti, jadi soal tetap dikenali di ujian SKD.
-    const stLama = skdSubtes_({ kategori: lama }), stBaru = skdSubtes_({ kategori: baru });
-    const bawaSubtes = (stLama && stLama !== stBaru) ? stLama : '';
-    if (bank.some(x => samaTeks_(x.kategori, baru) && !samaTeks_(x.kategori, lama)) && adaSoal) {
-      const gabung = await Dialog.konfirmasi({ judul: 'Nama Sudah Ada', tipe: 'info', ikon: 'fa-code-merge',
-        pesan: `Kategori **${baru}** sudah ada. Soal dari **${labelKategori(lama)}** akan **digabung** ke dalamnya.`, teksYa: 'Ya, Gabungkan' });
-      if (!gabung) return;
-    }
-    if (adaSoal) {
-      const res = await api('ubahNamaGrupSoal', { guruId: state.user.id, jenis: 'kategori', lama, baru, subtes: bawaSubtes });
-      if (!res.ok) { toast('Gagal mengubah nama: ' + (res.error || ''), 'error'); return; }
-      toast(`${res.count} soal dipindahkan ke "${baru}"${bawaSubtes ? ' (tetap dikenali sebagai ' + bawaSubtes + ')' : ''}.`, 'success');
-    } else toast(`Nama mapel diubah menjadi "${baru}".`, 'success');
-    pindahMetaMapel_(lama, baru);
-    if (samaTeks_(state.guru.kategoriKelola, lama)) state.guru.kategoriKelola = baru;
-    await Guru.muatBankSoal();
-  },
-  // Ubah nama Paket (sub-kategori) yang sedang dipilih pada filter; berlaku untuk semua soal bernama paket itu.
-  async ubahNamaPaket() {
-    const sel = document.getElementById('filter-subkategori-soal'); const lama = sel ? sel.value : '';
-    if (!lama) { toast('Pilih dulu paket yang ingin diubah pada kotak "Semua sub-kategori".', 'error'); return; }
-    const baru0 = await Dialog.input({
-      judul: 'Ubah Nama Paket', ikon: 'fa-pen',
-      pesan: `Nama baru untuk paket **${escapeHtml_(lama)}**. Berlaku untuk **semua soal** berpaket ini (TWK, TIU, TKP, dan lainnya) serta ujian yang memakainya.`,
-      label: 'Nama paket baru', nilai: lama, maksimal: 60, wajib: true, pesanWajib: 'Nama tidak boleh kosong.', teksYa: 'Simpan Nama'
-    });
-    if (baru0 === null || baru0 === undefined) return;
-    const baru = String(baru0).trim();
-    if (!baru || baru === lama) return;
-    const res = await api('ubahNamaGrupSoal', { guruId: state.user.id, jenis: 'paket', lama, baru });
-    if (!res.ok) { toast('Gagal mengubah nama paket: ' + (res.error || ''), 'error'); return; }
-    toast(`Paket diubah: ${res.count} soal${res.ujian ? ' dan ' + res.ujian + ' ujian' : ''} ikut diperbarui.`, 'success');
-    await Guru.muatBankSoal();
-    const sel2 = document.getElementById('filter-subkategori-soal');
-    if (sel2) { sel2.value = baru; Guru.renderDaftarSoal(); }
-  },
-
-  // ---------------- LEADERBOARD (guru) ----------------
-  async bukaTabLeaderboard() {
-    const sel = document.getElementById('lb-ujian'); if (!sel) return;
-    const dipilih = sel.value;
-    const res = await api('getDaftarUjian', { guruId: state.user.id });
-    if (res.ok) {
-      sel.innerHTML = '<option value="">Pilih ujian...</option>' + res.data.map(u => `<option value="${u.id}">${escapeHtml_(u.judul)}</option>`).join('');
-      if (dipilih && res.data.some(u => u.id === dipilih)) sel.value = dipilih; else if (res.data.length === 1) sel.value = res.data[0].id;
-    }
-    const pg = await api('getPengaturanLeaderboard', {}); const cb = document.getElementById('lb-tampil-siswa'); if (cb && pg && pg.ok) cb.checked = !!pg.aktif;
-    Guru.muatLeaderboard();
-  },
-  async muatLeaderboard() {
-    const isi = document.getElementById('lb-isi'); if (!isi) return;
-    const id = document.getElementById('lb-ujian').value;
-    if (!id) { isi.innerHTML = '<div class="lb-kosong"><i class="fa-solid fa-trophy"></i><p>Pilih ujian untuk melihat peringkat peserta.</p></div>'; return; }
-    isi.innerHTML = '<p class="subtitle">Memuat...</p>';
-    const kel = document.getElementById('lb-kelas'), lim = document.getElementById('lb-limit');
-    const res = await api('getLeaderboard', { ujianId: id, kelas: kel.value, limit: Number(lim.value) || 0 });
-    if (!res.ok) return gagalMuat_(isi, res.error || 'Gagal memuat leaderboard.');
-    const kv = kel.value;
-    kel.innerHTML = '<option value="">Semua kelas</option>' + (res.data.kelasList || []).map(k => `<option value="${escapeHtml_(k)}">${escapeHtml_(k)}</option>`).join('');
-    if (kv && (res.data.kelasList || []).includes(kv)) kel.value = kv;
-    isi.innerHTML = renderLeaderboard_(res.data, {});
-  },
-  async simpanLeaderboardSiswa(aktif) {
-    const res = await api('simpanPengaturanLeaderboard', { aktif: !!aktif });
-    toast(res.ok ? (aktif ? 'Leaderboard ditampilkan ke siswa.' : 'Leaderboard disembunyikan dari siswa.') : 'Gagal menyimpan pengaturan.', res.ok ? 'success' : 'error');
   },
 
   async tambahMapelBaru() {
@@ -5267,6 +4731,7 @@ const Guru = {
     if (filterSel) filterSel.value = kategori;
     UI.renderTipeTabs();
     Guru.renderDaftarSoal();
+    if (surveiAda_('bukaKategoriKelola')) Survei.bukaKategoriKelola();
   },
 
   kembaliKeGridMapel() {
@@ -5359,7 +4824,7 @@ const Guru = {
       <div class="soal-item">
         <div class="soal-item-nomor">${i + 1}</div>
         <div class="soal-item-body">
-          <div class="meta">${labelKategori(s.kategori)}${skdSubtes_(s) ? ' • <b class="badge-subtes">' + skdSubtes_(s) + '</b>' : ''}${s.subkategori ? ' • ' + escapeHtml_(s.subkategori) : ''}${s.topik ? ' • ' + escapeHtml_(s.topik) : ''} • ${labelTipe(s.tipe)} • Bobot ${s.bobot} • ${labelKesulitan(s.tingkat_kesulitan)} • <span class="badge no">Arsip</span></div>
+          <div class="meta">${labelKategori(s.kategori)}${s.subkategori ? ' • ' + escapeHtml_(s.subkategori) : ''}${s.topik ? ' • ' + escapeHtml_(s.topik) : ''} • ${labelTipe(s.tipe)} • Bobot ${s.bobot} • ${labelKesulitan(s.tingkat_kesulitan)} • <span class="badge no">Arsip</span></div>
           <div>${kontenSoalHtml(s.pertanyaan)}</div>
           ${s.gambar ? tagGambarAman_(s.gambar, '', 'Gambar soal') : ''}
           <div class="aksi">
@@ -5407,7 +4872,13 @@ const Guru = {
     const idList = cocok.map(s => s.id);
     const res = await api('hapusSoalBanyak', { ids: JSON.stringify(idList) });
     const gagal = res.ok ? 0 : cocok.length;
-    if (res.ok) Guru.hapusDariStateLokal_(idList);
+    if (res.ok) {
+      Guru.hapusDariStateLokal_(idList);
+      // paket survei kategori ini ikut dihapus bila tak ada lagi soal (aktif maupun arsip) yang memakainya
+      if (!(state.guru.bankSoal || []).some(x => samaTeks_(x.kategori, kategori))) {
+        try { await api('hapusPaketSurvei', { guruId: state.user.id, kategori, jenis: '' }); if (surveiAda_('muatPaket')) await Survei.muatPaket(true); } catch (e) { }
+      }
+    }
     toast(gagal ? `Gagal menghapus: ${res.error}` : `Kategori "${labelKategori(kategori)}" dihapus permanen dari Arsip (${cocok.length} soal).`, gagal ? 'error' : 'success');
     Guru.renderUlangBankSoal_();
     if (document.getElementById('arsip-kategori-view').classList.contains('hidden')) Guru.renderGridArsipKategori();
@@ -5471,7 +4942,6 @@ const Guru = {
       ? state.guru.kategoriKelola
       : (document.getElementById('filter-kategori-soal')?.value || '');
     const filterSubkategori = document.getElementById('filter-subkategori-soal')?.value || '';
-    const filterSubtes = document.getElementById('filter-subtes-soal')?.value || '';
     const filterStatus = document.getElementById('filter-status-soal')?.value || 'aktif';
     const hanyaRiwayat = document.getElementById('filter-riwayat-soal')?.checked || false;
     const hanyaBelumKunci = document.getElementById('filter-belum-kunci-soal')?.checked || false;
@@ -5491,7 +4961,6 @@ const Guru = {
     if (filterStatus !== 'semua') data = data.filter(s => (s.status || 'aktif') === filterStatus);
     if (filterKategori) data = data.filter(s => samaTeks_(s.kategori, filterKategori));
     if (filterSubkategori) data = data.filter(s => samaTeks_(s.subkategori, filterSubkategori));
-    if (filterSubtes) data = data.filter(s => skdSubtes_(s) === filterSubtes);
     if (hanyaRiwayat) data = data.filter(s => dipakaiDi[s.id]);
     if (tipeTab) data = data.filter(s => (s.tipe || 'pilihan_ganda') === tipeTab);
 
@@ -5517,7 +4986,7 @@ const Guru = {
       <div class="soal-item${(!stKunci.ada && !stKunci.manual) ? ' soal-tanpa-kunci' : ''}">
         <div class="soal-item-nomor">${i + 1}</div>
         <div class="soal-item-body">
-          <div class="meta">${labelKategori(s.kategori)}${skdSubtes_(s) ? ' • <b class="badge-subtes">' + skdSubtes_(s) + '</b>' : ''}${s.subkategori ? ' • ' + escapeHtml_(s.subkategori) : ''}${s.topik ? ' • ' + escapeHtml_(s.topik) : ''} • ${labelTipe(s.tipe)} • Bobot ${s.bobot} • ${labelKesulitan(s.tingkat_kesulitan)} • ${badgeKunci}${arsip ? ' • <span class="badge no">Arsip</span>' : ''}${dipakai ? ` • <span class="badge warn" title="${escapeHtml_(dipakai.join(', '))}">🕘 Pernah dipakai (${dipakai.length}×)</span>` : ''}</div>
+          <div class="meta">${labelKategori(s.kategori)}${s.subkategori ? ' • ' + escapeHtml_(s.subkategori) : ''}${s.topik ? ' • ' + escapeHtml_(s.topik) : ''} • ${labelTipe(s.tipe)} • Bobot ${s.bobot} • ${labelKesulitan(s.tingkat_kesulitan)} • ${badgeKunci}${arsip ? ' • <span class="badge no">Arsip</span>' : ''}${dipakai ? ` • <span class="badge warn" title="${escapeHtml_(dipakai.join(', '))}">🕘 Pernah dipakai (${dipakai.length}×)</span>` : ''}</div>
           <div>${kontenSoalHtml(s.pertanyaan)}</div>
           ${s.gambar ? tagGambarAman_(s.gambar, '', 'Gambar soal') : ''}
           ${s.audio ? `<audio controls src="${escapeHtml_(s.audio)}" style="margin-top:.5rem;max-width:320px"></audio>` : ''}
@@ -5616,7 +5085,8 @@ const Guru = {
       ? unik.map(k => `
         <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:.5rem">
           <span><strong>${escapeHtml_(labelKategori(k))}</strong> <span class="subtitle" style="display:inline">(${peta[k]} soal aktif)</span></span>
-          <button class="danger small" data-kategori="${escapeHtml_(k).replace(/"/g, '&quot;')}" onclick="Guru.hapusKategoriSoal(this.dataset.kategori)">🗑 Hapus</button>
+          <span style="display:flex;gap:.4rem"><button class="secondary small" data-kategori="${escapeHtml_(k).replace(/"/g, '&quot;')}" onclick="Guru.ubahNamaKategori(this.dataset.kategori)">✏️ Ubah Nama</button>
+          <button class="danger small" data-kategori="${escapeHtml_(k).replace(/"/g, '&quot;')}" onclick="Guru.hapusKategoriSoal(this.dataset.kategori)">🗑 Hapus</button></span>
         </div>`).join('')
       : '<p class="subtitle">Belum ada kategori aktif. Tambahkan lewat form di bawah, atau langsung ketik nama baru saat menambah soal.</p>';
   },
@@ -5634,6 +5104,43 @@ const Guru = {
   // aktif di kategori itu dipindahkan ke Arsip (bisa dikembalikan kapan saja
   // lewat filter status "Arsip"), lalu kategorinya otomatis hilang dari
   // daftar aktif karena tidak ada lagi soal aktif yang memakainya.
+  // Mengganti nama Mapel/kategori (mis. "Literasi" -> "Literasi 1"): semua soal (termasuk arsip), ujian yang memakai
+  // kategori itu, dan paket survei-nya ikut berganti nama; token & warna kartu tetap. Judul ujian TIDAK diubah.
+  async ubahNamaKategori(kategori) {
+    const lama = String(kategori == null ? '' : kategori).trim();
+    if (!lama || lama === '(tanpa kategori)') { toast('Kategori ini tidak bisa diganti namanya.', 'error'); return; }
+    const jumlah = (state.guru.bankSoal || []).filter(s => samaTeks_(s.kategori, lama)).length;
+    const label = labelKategori(lama);
+    const nama = await Dialog.input({
+      judul: 'Ubah Nama Mapel', ikon: 'fa-pen',
+      pesan: `Nama **${label}** akan diganti di **${jumlah} soal** (termasuk yang diarsipkan), ujian yang memakai kategori ini, dan paket survei-nya. Judul ujian tidak ikut berubah.`,
+      label: 'Nama baru', nilai: label, placeholder: 'Contoh: Literasi 1', maksimal: 60, wajib: true, pesanWajib: 'Nama tidak boleh kosong.',
+      teksYa: 'Simpan Nama',
+      validasi: v => {
+        const t = String(v).trim();
+        if (t === label) return 'Nama baru sama dengan nama lama.';
+        if ((state.guru.bankSoal || []).some(s => samaTeks_(s.kategori, t) && !samaTeks_(s.kategori, lama))) return `Sudah ada Mapel bernama "${t}". Gunakan nama lain.`;
+        return '';
+      }
+    });
+    if (!nama || !nama.trim()) return;
+    const baru = nama.trim();
+    toast('Mengubah nama Mapel...');
+    let res = null;
+    try { res = await api('ubahNamaKategori', { guruId: state.user.id, dari: lama, ke: baru }); } catch (e) { res = null; }
+    if (!res || !res.ok) {
+      const err = (res && res.error) || 'tidak ada respons dari server';
+      toast('Gagal mengubah nama: ' + err + (/tidak dikenal/i.test(err) ? ' — tempel ulang Code.gs terbaru ke Apps Script lalu Deploy > Manage deployments > New version.' : ''), 'error');
+      return;
+    }
+    pindahMetaMapel_(lama, baru);
+    const dalamKelola = state.guru.viewBankSoal === 'kelola' && samaTeks_(state.guru.kategoriKelola, lama);
+    await Guru.muatBankSoal();
+    if (dalamKelola) Guru.bukaKelolaSoal(baru);
+    if (!document.getElementById('modal-kelola-kategori').classList.contains('hidden')) Guru.renderKelolaKategori();
+    toast(`Mapel diubah menjadi "${baru}" (${res.soal || 0} soal, ${res.ujian || 0} ujian, ${res.paket || 0} paket survei diperbarui).`, 'success');
+  },
+
   async hapusKategoriSoal(kategori) {
     if (!(state.guru.bankSoal || []).some(s => samaTeks_(s.kategori, kategori))) {
       // Mapel kosong buatan sendiri: cukup dilepas dari daftar kartu.
@@ -5707,29 +5214,19 @@ const Guru = {
         guru_id: state.user.id,
         kategori: document.getElementById('soal-kategori').value,
         subkategori: document.getElementById('soal-subkategori').value.trim(),
-        subtes: (document.getElementById('soal-subtes') || {}).value || '',
         topik: document.getElementById('soal-topik').value.trim(),
         tipe,
         pertanyaan: sanitasiHtmlKaya_(rtHtmlSerial_(document.getElementById('soal-pertanyaan'))),
         gambar: document.getElementById('soal-gambar-url').value,
         audio: document.getElementById('soal-audio-url').value,
         video: document.getElementById('soal-video-url').value,
-        bobot: Number(document.getElementById('soal-bobot').value) || 5,
+        bobot: Number(document.getElementById('soal-bobot').value) || 10,
         tingkat_kesulitan: document.getElementById('soal-tingkat-kesulitan').value,
         pembahasan: (() => { const v = sanitasiHtmlKaya_(rtHtmlSerial_(document.getElementById('soal-pembahasan'))); return richTeksKosong_(v) ? '' : v; })()
       };
       if (richTeksKosong_(soal.pertanyaan)) { toast('Pertanyaan tidak boleh kosong.', 'error'); return; }
 
-      if (tipe === 'tkp') {
-        const barisT = document.querySelectorAll('#soal-form-opsi .opsi-row');
-        const opsiT = Array.from(barisT).map(row => { const o = { teks: sanitasiHtmlKaya_(rtHtmlSerial_(row.querySelector('.opsi-teks-rich'))) }; const gb = row.querySelector('.opsi-gambar-url').value.trim(); if (gb) o.gambar = gb; return o; });
-        const skorT = Array.from(barisT).map(row => Number(row.querySelector('.tkp-skor').value) || 0);
-        if (opsiT.length < 2) { toast('Minimal 2 opsi jawaban.', 'error'); return; }
-        if (opsiT.some(o => richTeksKosong_(o.teks) && !o.gambar)) { toast('Setiap opsi harus memiliki teks atau gambar.', 'error'); return; }
-        soal.opsi_json = JSON.stringify(opsiT);
-        soal.kunci_json = JSON.stringify(skorT);
-        soal.bobot = Math.max(...skorT, 5);
-      } else if (tipe === 'pilihan_ganda' || tipe === 'checkbox' || tipe === 'benar_salah') {
+      if (tipe === 'pilihan_ganda' || tipe === 'checkbox' || tipe === 'benar_salah') {
         const baris = document.querySelectorAll('#soal-form-opsi .opsi-row');
         const opsi = Array.from(baris).map(row => {
           const teks = sanitasiHtmlKaya_(rtHtmlSerial_(row.querySelector('.opsi-teks-rich')));
@@ -5833,20 +5330,18 @@ const Guru = {
       try { await muatPustaka_('xlsx'); } catch (err) { toast(err.message, 'error'); ev.target.value = ''; return; }
       const wb = XLSX.read(e.target.result, { type: 'binary' });
       const sheet = wb.Sheets[wb.SheetNames[0]];
-      const peringatan = [];
-      let rowsSemua = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-      rowsSemua = await Guru.sisipkanGambarTempelXlsx_(e.target.result, sheet, rowsSemua, peringatan); // gambar yang ditempel di Excel
-      const rows = rowsSemua.filter(r => r.some(c => String(c || '').trim()));
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }).filter(r => r.some(c => String(c || '').trim()));
       const petaGambar = await Guru.unggahBatchGambarImpor_(inputGambar ? inputGambar.files : null);
+      const peringatan = [];
       const soalList = barisTabelKeSoalList_(rows, state.user.id, state.guru.kategoriKelola, petaGambar, peringatan);
       if (soalList.length === 0) { toast('Tidak ada baris soal valid ditemukan di file. Pastikan baris pertama adalah header & kolom "Pertanyaan" terisi.', 'error'); return; }
       const res = await api('importSoal', { soalList: JSON.stringify(soalList) });
       if (res.ok) {
-        { const rg = ringkasImporSkd_(soalList); toast(res.count + ' soal berhasil diimpor' + rg.teks + '.', 'success'); peringatanTanpaSubtes_(rg.lain, soalList.length); }
+        toast(res.count + ' soal berhasil diimpor.', 'success');
         Guru.muatBankSoal();
         if (peringatan.length) Dialog.info({
           judul: 'Impor Berhasil, Perlu Diperiksa', tipe: 'warning', ikon: 'fa-file-circle-exclamation',
-          pesan: 'Soal berhasil diimpor, **tetapi** ada ' + peringatan.length + ' catatan (kunci jawaban, tipe soal, atau gambar) yang perlu diperiksa di Bank Soal:',
+          pesan: 'Soal berhasil diimpor, **tetapi** ' + peringatan.length + ' soal memiliki kunci jawaban yang tidak dikenali. Mohon periksa dan perbaiki manual di Bank Soal:',
           daftar: peringatan
         });
       }
@@ -5903,9 +5398,8 @@ const Guru = {
 
         // Tahap 1: kumpulkan gambar unik yg benar-benar dipakai di SEL DATA (bukan header).
         const dipakai = new Set();
-        const tabelUtama = Array.from(dom.querySelectorAll('table')).filter(t => !(t.parentElement && t.parentElement.closest('table'))); // tabel di DALAM sel soal (mis. TIU bertabel) bukan tabel soal
-        for (const tbl of tabelUtama) {
-          Array.from(tbl.rows).slice(1).forEach(tr => {
+        for (const tbl of Array.from(dom.querySelectorAll('table'))) {
+          Array.from(tbl.querySelectorAll('tr')).slice(1).forEach(tr => {
             tr.querySelectorAll('img').forEach(img => {
               const m = /^cbt-img:(\d+)$/.exec(img.getAttribute('src') || '');
               if (m) dipakai.add(Number(m[1]));
@@ -5943,14 +5437,14 @@ const Guru = {
         // Tahap 3: pasang URL hasil unggahan lalu bentuk baris soal.
         let soalList = [];
         const peringatan = [];
-        for (const tbl of tabelUtama) {
-          const trList = Array.from(tbl.rows);
+        for (const tbl of Array.from(dom.querySelectorAll('table'))) {
+          const trList = Array.from(tbl.querySelectorAll('tr'));
           if (!trList.length) continue;
-          const headerKey = Array.from(trList[0].cells).map(td => kunciHeader_(td.textContent));
-          if (headerKey.indexOf('pernyataan') >= 0) continue; // tabel lain di dokumen yang bukan tabel soal
+          const headerKey = Array.from(trList[0].querySelectorAll('th,td')).map(td => kunciHeader_(td.textContent));
+          if (headerKey.indexOf('pernyataan') >= 0) continue; // tabel butir survei (diimpor lewat Kelola Ujian), bukan soal
           const rows = [];
           for (let rIdx = 0; rIdx < trList.length; rIdx++) {
-            const selList = Array.from(trList[rIdx].cells);
+            const selList = Array.from(trList[rIdx].querySelectorAll('th,td'));
             const nilai = [];
             for (let cIdx = 0; cIdx < selList.length; cIdx++) {
               const td = selList[cIdx];
@@ -5984,11 +5478,11 @@ const Guru = {
         if (res.ok) {
           let ket = '';
           if (jumlahTempel > 0) ket = ` (${jumlahTempel - gagalTempel} gambar tempelan di Word ikut otomatis terunggah${gagalTempel ? `, ${gagalTempel} gagal` : ''})`;
-          { const rg = ringkasImporSkd_(soalList); toast(res.count + ' soal berhasil diimpor dari Word' + rg.teks + ket + '.', 'success'); peringatanTanpaSubtes_(rg.lain, soalList.length); }
+          toast(res.count + ' soal berhasil diimpor dari Word' + ket + '.', 'success');
           Guru.muatBankSoal();
           if (peringatan.length) Dialog.info({
             judul: 'Impor Berhasil, Perlu Diperiksa', tipe: 'warning', ikon: 'fa-file-circle-exclamation',
-            pesan: 'Soal berhasil diimpor, **tetapi** ada ' + peringatan.length + ' catatan (kunci jawaban, tipe soal, atau gambar) yang perlu diperiksa di Bank Soal:',
+            pesan: 'Soal berhasil diimpor, **tetapi** ' + peringatan.length + ' soal memiliki kunci jawaban yang tidak dikenali. Mohon periksa dan perbaiki manual di Bank Soal:',
             daftar: peringatan
           });
         }
@@ -6009,15 +5503,22 @@ const Guru = {
   // menambah baris baru di bawah contoh mengikuti pola yang sama, TANPA perlu
   // paham format label/kode apa pun. Ditulis langsung tanpa pustaka pihak ketiga.
   unduhTemplateSoalDocx() {
-    const items = [
-      { text: 'TEMPLATE IMPORT SOAL SKD CPNS — Simulasi CAT', heading: true },
-      { text: 'Isi tabel di bawah, SATU BARIS = SATU SOAL. Jangan mengubah baris judul kolom. Hapus baris contoh sebelum mengimpor.' },
-      { text: 'Subtes (atau Kategori): TWK, TIU, atau TKP — semua soal tetap masuk ke mapel yang sedang dibuka, tidak dipecah. Topik: materi/sub-materi, mis. Pancasila, UUD 1945, Pola Bilangan, Kecukupan Data, Pelayanan Publik (dipakai untuk analisis materi yang kurang per peserta). Paket (sub-kategori / try out) dipilih saat impor.' },
-      { text: 'Tipe PG (TWK/TIU): isi Opsi A–E dan Kunci satu huruf (benar = 5 poin, salah/kosong = 0). Tipe TKP: isi Opsi A–E dan kolom Kunci dengan SKOR 1–5 tiap opsi berurutan A..E, mis. 5,4,3,2,1 (opsi paling tepat = 5). Tipe Kecukupan (soal Kecukupan Data TIU): cukup isi Pertanyaan (termasuk PERNYATAAN (1) dan (2)) dan Kunci A–E; kelima pilihan baku terisi otomatis.' },
-      { text: 'Soal bertabel (mis. Pola Bilangan): pada file Word, tempel/buat tabel langsung di dalam sel Pertanyaan, atau pakai kolom Gambar. Tabel di sel tetap terbaca. Rumus: cukup Insert > Equation (otomatis dikonversi saat impor), atau ketik LaTeX di antara tanda $ ... $, mis. $\\frac{1}{2}$ atau $x^{2}$ (rumus besar di baris sendiri: $$ ... $$). Pangkat/indeks biasa: Superscript/Subscript. Gambar boleh ditempel di kolom Gambar. Pembahasan opsional.' },
-      { table: { headers: SKD_TEMPLATE_HEADERS_, rows: SKD_TEMPLATE_ROWS_ } }
+    const headers = ['Kategori', 'Topik', 'Tipe', 'Pertanyaan', 'Gambar', 'Opsi A', 'Opsi B', 'Opsi C', 'Opsi D', 'Opsi E', 'Kunci', 'Bobot', 'Kesulitan', 'Pembahasan'];
+    const rows = [
+      ['', 'Sejarah Indonesia', 'PG', 'Siapakah Presiden Indonesia pada tahun 1999?', '', 'Soekarno', 'Soeharto', 'B. J. Habibie', 'Abdurrahman Wahid', '', 'C', '10', 'Sedang', 'Contoh pembahasan: tulis alasan jawaban yang benar dan penjelasan singkatnya di sini.'],
+      ['', 'Biologi', 'PGK', 'Manakah yang termasuk hewan mamalia? (kunci boleh lebih dari 1, pisah koma)', '', 'Paus', 'Ular', 'Kelelawar', 'Buaya', '', 'A,C', '10', 'Sedang', ''],
+      ['', 'Geografi', 'BS', 'Indonesia terletak di antara dua benua, yaitu Asia dan Australia.', '', 'Benar', 'Salah', '', '', '', 'Benar', '5', 'Mudah', ''],
+      ['', 'Biologi', 'Essay', 'Jelaskan proses terjadinya fotosintesis pada tumbuhan.', '', '', '', '', '', '', 'fotosintesis, klorofil, karbon dioksida', '15', 'Sedang', ''],
+      ['', 'Geografi', 'Jodohkan', 'Jodohkan negara dengan ibu kotanya.', '', 'Indonesia = Jakarta', 'Jepang = Tokyo', 'Prancis = Paris', '', '', '', '10', 'Sedang', ''],
+      ['', 'Matematika', 'Kategori', 'Diketahui x = 4 dan y = 3. Tentukan Benar atau Salah untuk setiap pernyataan berikut!', '', 'x + y = 7 | Benar', 'x × y = 12 | Benar', 'x - y = 2 | Salah', '2x + y = 10 | Salah', '', '', '10', 'Sedang', ''],
+      ['', '', '', '(tambahkan baris baru di bawah sini, ikuti pola di atas — boleh sebanyak yang dibutuhkan)', '', '', '', '', '', '', '', '', '', '']
     ];
-    unduhDocx_('Template_Import_Soal_SKD.docx', items);
+    const items = [
+      { text: 'TEMPLATE IMPORT SOAL — CBT Online', heading: true },
+      { text: 'Isi tabel di bawah, SATU BARIS = SATU SOAL (kolom Pembahasan opsional: penjelasan jawaban yang bisa dilihat siswa bila guru mengaktifkannya di pengaturan ujian). Kolom Tipe: PG (pilihan ganda), PGK (pilihan ganda kompleks/kunci boleh lebih dari 1), BS (benar/salah), Kategori (Benar/Salah per pernyataan, PGK Kategori), Jodohkan, Essay. Untuk Kategori, tiap Opsi ditulis "pernyataan | Benar" atau "pernyataan | Salah" (juga boleh Sesuai/Tidak Sesuai, Tepat/Tidak Tepat); kolom Kunci dikosongkan. Pernyataan boleh memuat tanda =, mis. "x - y = 2 | Salah". Kolom Kunci cukup diisi HURUF opsi yang benar (mis. "C"), untuk PGK pisah dgn koma (mis. "A,C"), untuk BS isi "Benar"/"Salah", untuk Essay isi kata kunci penilaian dipisah koma. Kolom Gambar: boleh dikosongkan, boleh diisi link gambar publik, ATAU cukup TEMPEL/SISIPKAN gambarnya langsung di dalam sel itu (Insert > Pictures di Word) -- saat diimpor gambar tersebut otomatis terdeteksi & terunggah sendiri, tanpa perlu file gambar terpisah. Gambar juga boleh ditempel langsung di tengah sel Pertanyaan/Opsi kalau perlu. Kolom yang tidak dipakai (mis. Opsi E utk soal 4 opsi) boleh dikosongkan. Tipe Jodohkan sebaiknya dibuat lewat "Tambah Soal Manual" karena pasangannya lebih mudah diatur lewat formulir. RUMUS: tulis lewat Insert > Equation di Word (pecahan, pangkat, akar, tanda coret, dst) -- otomatis ikut terbaca & tampil sama di aplikasi. Kolom Pembahasan juga mempertahankan baris baru, huruf tebal, pangkat/indeks, dan gambar.' },
+      { table: { headers, rows } }
+    ];
+    unduhDocx_('Template_Import_Soal_CBT.docx', items);
     toast('Template .docx berhasil diunduh.', 'success');
   },
 
@@ -6028,58 +5529,60 @@ const Guru = {
     if (!res.ok) return gagalMuat_(cont, 'Gagal memuat.');
     state.guru.ujianList = res.data;
     if (res.data.length === 0) { cont.innerHTML = '<p class="subtitle">Belum ada ujian.</p>'; return; }
-    { const aktif = res.data.filter(u => u.status === 'aktif').length; const r = document.getElementById('ujian-ringkas'); if (r) r.textContent = `${res.data.length} ujian · ${aktif} aktif`; }
-    cont.innerHTML = `<div class="table-scroll-x"><table class="ledger tabel-ujian"><thead><tr>
-        <th>Ujian</th><th>Komposisi Soal</th><th>Token</th><th>Token Aktif untuk</th><th class="tengah">Durasi</th><th>Jadwal</th><th class="tengah">Maks. Pelanggaran</th><th>Status</th><th></th>
-      </tr></thead><tbody>` + res.data.map(u => `
-        <tr>
-          <td class="sel-judul"><strong>${escapeHtml_(u.judul)}</strong><span class="judul-meta">${labelKategori(u.kategori)}${u.subkategori ? ' • ' + escapeHtml_(u.subkategori) : ''}</span></td>
-          <td id="kom-${u.id}" class="kom-sel"><span class="subtitle">Memuat...</span></td>
-          <td><span class="token-sel"><code class="token-kode">${escapeHtml_(u.token)}</code><button type="button" class="token-salin" title="Salin token" aria-label="Salin token" onclick="Guru.salinToken('${escapeHtml_(u.token)}')"><i class="fa-regular fa-copy"></i></button></span></td>
-          <td id="tk-ringkas-${u.id}" class="sel-token-kelas">${ringkasTokenKelas_(u)}</td>
-          <td class="tengah"><span class="angka-besar">${u.durasi_menit}</span><span class="satuan">menit</span></td>
-          <td class="sel-jadwal"><div><span>Mulai</span>${formatTanggal(u.mulai)}</div><div><span>Selesai</span>${formatTanggal(u.selesai)}</div></td>
-          <td class="tengah">${u.max_pelanggaran}</td>
-          <td><span class="badge ${u.status === 'aktif' ? 'ok' : 'no'}">${u.status}</span></td>
-          <td class="aksi-ujian-sel"><div class="aksi-ujian">
-            <button class="accent small" onclick="Guru.bukaTokenKelas('${u.id}')" title="Aktifkan / nonaktifkan token per kelas"><i class="fa-solid fa-key"></i> Token Kelas</button>
-            <button class="secondary small" onclick='Guru.bukaEditUjian("${u.id}")'><i class="fa-solid fa-pen"></i> Ubah</button>
-            <button class="danger small" onclick="Guru.hapusUjian('${u.id}')" title="Hapus ujian"><i class="fa-solid fa-trash"></i> Hapus</button>
-          </div></td>
-        </tr>`).join('') + `</tbody></table></div>`;
-    Guru.isiKomposisiUjian_(res.data);
+    const labelStatus = { berlangsung: ['ok', 'Berlangsung'], terjadwal: ['warn', 'Akan datang'], selesai: ['mute', 'Selesai'], nonaktif: ['no', 'Nonaktif'] };
+    // Peringatan: dua ujian (atau lebih) berlangsung bersamaan untuk kelas yang sama -> token keduanya sama-sama terlihat siswa.
+    const jalan = res.data.filter(u => statusUjian_(u) === 'berlangsung');
+    const bentrok = jalan.filter(a => jalan.some(b => b !== a && kelasBeririsan_(a, b)));
+    const banner = bentrok.length >= 2 ? `
+      <div class="ujian-bentrok" role="alert" style="margin:0 0 1rem;padding:.8rem 1rem;border-radius:14px;border:1px solid color-mix(in srgb,#f5a524 55%,var(--c-line));background:color-mix(in srgb,#f5a524 15%,var(--c-surface));font-size:.86rem;line-height:1.55">
+        <strong>⚠ ${bentrok.length} ujian berlangsung bersamaan untuk kelas yang sama</strong>
+        <div style="margin:.2rem 0 .55rem">Siswa bisa melihat dan salah memasukkan token ujian lain. Nonaktifkan salah satu, atau batasi kelasnya lewat <strong>🔑 Token Kelas</strong>.</div>
+        <div style="display:flex;gap:.45rem;flex-wrap:wrap">${bentrok.map(u => `<button type="button" class="secondary small" onclick="Guru.ubahStatusUjian('${u.id}', false)">⏸ Nonaktifkan ${escapeHtml_(u.judul)} (${escapeHtml_(u.token)})</button>`).join('')}</div>
+      </div>` : '';
+    cont.innerHTML = banner + `<table class="ledger"><thead><tr>
+        <th>Judul</th><th>Token</th><th>Token Aktif untuk</th><th>Durasi</th><th>Jadwal</th><th>Maks. Pelanggaran</th><th>Status</th><th></th>
+
+      </tr></thead><tbody>` + res.data.map(u => {
+        const st = statusUjian_(u), mati = st === 'nonaktif';
+        const [kls, lbl] = labelStatus[st];
+        return `
+        <tr${mati ? ' style="opacity:.6"' : ''}>
+          <td><strong>${escapeHtml_(u.judul)}</strong><br><span style="color:var(--c-muted);font-size:.78rem">${labelKategori(u.kategori)}${u.subkategori ? ' • ' + escapeHtml_(u.subkategori) : ''}</span></td>
+          <td><code style="font-size:1rem;font-weight:700${mati ? ';text-decoration:line-through' : ''}">${u.token}</code></td>
+          <td id="tk-ringkas-${u.id}" style="font-size:.8rem;max-width:170px">${ringkasTokenKelas_(u)}</td>
+          <td>${u.durasi_menit} menit</td>
+          <td style="font-size:.8rem">${formatTanggal(u.mulai)}<br>s/d ${formatTanggal(u.selesai)}</td>
+          <td>${u.max_pelanggaran}</td>
+          <td><span class="badge ${kls}">${lbl}</span></td>
+          <td>
+            ${mati
+              ? `<button class="accent small" onclick="Guru.ubahStatusUjian('${u.id}', true)" title="Aktifkan kembali: token bisa dipakai siswa lagi">▶ Aktifkan</button>`
+              : `<button class="secondary small" onclick="Guru.ubahStatusUjian('${u.id}', false)" title="Nonaktifkan: token tidak bisa dipakai & tidak tampil di layar peserta">⏸ Nonaktifkan</button>`}
+            <button class="accent small" onclick="Guru.bukaTokenKelas('${u.id}')" title="Aktifkan / nonaktifkan token per kelas">🔑 Token Kelas</button>
+            <button class="secondary small" onclick='Guru.bukaEditUjian("${u.id}")'>Ubah</button>
+            <button class="danger small" onclick="Guru.hapusUjian('${u.id}')">Hapus</button>
+          </td>
+        </tr>`;
+      }).join('') + `</tbody></table>`;
   },
-  async salinToken(t) {
-    try { await navigator.clipboard.writeText(String(t)); toast('Token ' + t + ' disalin.', 'success'); }
-    catch (e) { toast('Salin manual token: ' + t, 'error'); }
-  },
-  // Komposisi soal tiap ujian (TWK/TIU/TKP) dibandingkan dengan jumlah yang diminta saat ujian dibuat.
-  async isiKomposisiUjian_(daftar) {
-    let bank = [];
-    try { const r = await api('getBankSoal', { guruId: state.user.id }); if (r && r.ok) bank = r.data || []; } catch (e) { }
-    const peta = {}; bank.forEach(x => { peta[x.id] = x; });
-    daftar.forEach(u => {
-      const el = document.getElementById('kom-' + u.id); if (!el) return;
-      const n = { TWK: 0, TIU: 0, TKP: 0 }; let lain = 0, hilang = 0;
-      String(u.soal_ids || '').split(',').filter(Boolean).forEach(id => { const x = peta[id]; if (!x) { hilang++; return; } const st = skdSubtes_(x); if (st) n[st]++; else lain++; });
-      let amb = null; try { amb = u.ambang_json ? JSON.parse(u.ambang_json) : null; } catch (e) { amb = null; }
-      const tg = amb && amb.target ? { TWK: Number(amb.target.twk) || 0, TIU: Number(amb.target.tiu) || 0, TKP: Number(amb.target.tkp) || 0 } : null;
-      let ada = false; // ada subtes yang kurang?
-      let h = ['TWK', 'TIU', 'TKP'].map(st => {
-        const m = tg ? tg[st] : null;
-        const kurang = m !== null ? Math.max(0, m - n[st]) : (n[st] === 0 ? 1 : 0);
-        if (kurang) ada = true;
-        if (!kurang) return `<div class="kom-baris ok"><b>${st}</b><span>${n[st]}${m !== null ? ' / ' + m : ''} soal</span></div>`;
-        return m !== null
-          ? `<div class="kom-baris kurang"><b>${st}</b><span>${n[st]} / ${m} soal · kurang ${kurang}</span></div>`
-          : `<div class="kom-baris kurang"><b>${st}</b><span>belum ada soal</span></div>`;
-      }).join('');
-      if (hilang) { ada = true; h += `<div class="kom-baris kurang">⚠ ${hilang} soal sudah dihapus dari Bank Soal</div>`; }
-      if (lain) h += `<div class="kom-baris">${lain} soal tanpa subtes (tidak terhitung)</div>`;
-      h += `<div class="kom-total ${ada ? 'kurang' : 'ok'}"><span>Total</span><span>${n.TWK + n.TIU + n.TKP}${tg ? ' / ' + (tg.TWK + tg.TIU + tg.TKP) : ''} soal${ada ? ' · belum lengkap' : ''}</span></div>`;
-      if (!tg) h += '<div class="kom-baris" style="opacity:.7">Jumlah diminta belum tersimpan (ujian lama). Buka “Ubah” lalu simpan.</div>';
-      el.innerHTML = h;
-    });
+
+  // Aktifkan / nonaktifkan satu ujian. Ujian nonaktif: tokennya ditolak, tidak tampil di layar peserta, dan siswa tidak bisa
+  // memulai sesi baru; siswa yang sudah mengerjakan tetap bisa melanjutkan. Memakai aksi simpanUjian (hanya kolom status).
+  async ubahStatusUjian(id, aktifkan) {
+    const u = (state.guru.ujianList || []).find(x => x.id === id); if (!u) return;
+    if (!aktifkan) {
+      const ya = await Dialog.konfirmasi({
+        judul: 'Nonaktifkan Ujian?', tipe: 'warning', ikon: 'fa-circle-pause',
+        pesan: `Ujian **${u.judul}** (token **${u.token}**) dinonaktifkan.\n\nSiswa tidak bisa lagi memasukkan token atau memulai ujian ini, dan tokennya tidak tampil di layar peserta. Siswa yang sudah mulai mengerjakan tetap bisa melanjutkan sampai selesai.\n\nAnda bisa mengaktifkannya lagi kapan saja.`,
+        teksYa: 'Ya, Nonaktifkan'
+      });
+      if (!ya) return;
+    }
+    const res = await api('simpanUjian', { ujian: JSON.stringify({ id, status: aktifkan ? 'aktif' : 'nonaktif' }) });
+    if (!res || !res.ok) { toast('Gagal mengubah status ujian: ' + ((res && res.error) || 'tidak ada respons'), 'error'); return; }
+    await Guru.muatDaftarUjian();
+    try { Guru.renderDashboard(); } catch (e) { }
+    toast(aktifkan ? `Ujian "${u.judul}" diaktifkan. Token ${u.token} bisa dipakai siswa.` : `Ujian "${u.judul}" dinonaktifkan. Token ${u.token} tidak bisa dipakai.`, 'success');
   },
 
   // ---------------- TOKEN PER KELAS (modal) ----------------
@@ -6146,116 +5649,28 @@ const Guru = {
     if (res.ok) { toast('Ujian dihapus.', 'success'); Guru.muatDaftarUjian(); }
   },
 
-  // SKD: soal dari kategori TWK/TIU/TKP (paket opsional). Susun otomatis N soal per subtes; centang bisa diubah manual.
   async muatPilihanSoalUntukUjian(idsTerpilih) {
+    const kategori = document.getElementById('ujian-kategori').value;
     const subkategori = document.getElementById('ujian-subkategori').value.trim();
-    const res = await api('getBankSoal', { guruId: state.user.id, kategori: '', subkategori });
+    const res = await api('getBankSoal', { guruId: state.user.id, kategori, subkategori });
     const cont = document.getElementById('pilihan-soal-ujian');
+    if (!res.ok || res.data.length === 0) { cont.innerHTML = '<p class="subtitle">Tidak ada soal di kategori/sub-kategori ini.</p>'; return; }
+    // Soal yang sudah diarsipkan tidak ikut ditawarkan (harus dikembalikan dulu
+    // lewat Bank Soal) — KECUALI soal itu memang sudah tercentang di ujian yang
+    // sedang diubah, supaya tidak "hilang" tiba-tiba dari ujian lama.
     const terpilih = idsTerpilih || [];
-    { // pilihan "Ambil soal dari mapel": hanya mapel yang memuat soal TWK/TIU/TKP
-      const selSum = document.getElementById('ujian-sumber');
-      if (selSum) {
-        const sebelum = Guru._sumberUjian !== undefined ? Guru._sumberUjian : selSum.value; Guru._sumberUjian = undefined;
-        const kats = [...new Set((res.ok ? res.data : []).filter(s => (s.status || 'aktif') !== 'arsip' && skdSubtes_(s)).map(s => String(s.kategori || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'id'));
-        selSum.innerHTML = '<option value="">Semua mapel yang memuat soal TWK/TIU/TKP</option>' + kats.map(k => `<option value="${escapeHtml_(k)}">${escapeHtml_(labelKategori(k))}</option>`).join('');
-        selSum.value = kats.some(k => samaTeks_(k, sebelum)) ? kats.find(k => samaTeks_(k, sebelum)) : '';
-      }
-    }
-    const sumber = (document.getElementById('ujian-sumber') || {}).value || '';
-    const daftar = (res.ok ? res.data : []).filter(s => ((s.status || 'aktif') !== 'arsip' || terpilih.includes(s.id)) && skdSubtes_(s) && (!sumber || samaTeks_(s.kategori, sumber)));
-    Guru._poolSkd = { TWK: [], TIU: [], TKP: [] };
-    daftar.forEach(s => Guru._poolSkd[skdSubtes_(s)].push(s));
-    { // soal aktif yang namanya tidak memuat TWK/TIU/TKP -> tak bisa dipakai ujian; beri tahu kategorinya
-      const peta = {}; let n = 0;
-      (res.ok ? res.data : []).forEach(s => { if ((s.status || 'aktif') !== 'arsip' && !skdSubtes_(s)) { n++; const k = String(s.kategori || '(tanpa kategori)'); peta[k] = (peta[k] || 0) + 1; } });
-      Guru._soalTanpaSubtes = { n, kategori: Object.keys(peta).map(k => `${k} (${peta[k]})`) };
-    }
-    if (!daftar.length) { cont.innerHTML = '<p class="subtitle">Belum ada soal TWK/TIU/TKP' + (subkategori ? ' pada paket ini' : '') + '. Buat kategori bernama TWK, TIU, TKP di Bank Soal lalu isi soalnya.</p>'; Guru.hitungPilihSkd(); return; }
-    const ada = idsTerpilih && idsTerpilih.length;
-    cont.innerHTML = ['TWK', 'TIU', 'TKP'].map(st => `<div class="skd-poolgrup"><b>${st}</b> <span class="subtitle">(${Guru._poolSkd[st].length} soal tersedia)</span>` + Guru._poolSkd[st].map(s => `
-      <label style="display:flex;gap:.5rem;align-items:flex-start;margin:.3rem 0;font-weight:400">
-        <input type="checkbox" class="chk-soal-ujian" data-st="${st}" value="${s.id}" ${ada && terpilih.includes(s.id) ? 'checked' : ''} onchange="Guru.hitungPilihSkd()" style="width:auto;margin-top:.2rem">
-        <span>${escapeHtml_(String(s.pertanyaan).replace(/<[^>]*>/g, ' ')).slice(0, 90)} <em style="color:var(--c-muted)">${s.topik ? '· ' + escapeHtml_(s.topik) : ''}</em></span>
-      </label>`).join('') + '</div>').join('');
-    if (!ada) Guru.susunSoalSkd(false); else Guru.hitungPilihSkd();
-  },
-  // Jumlah soal yang DIMINTA per subtes (kotak TWK / TIU / TKP di form ujian).
-  _targetSkd() {
-    const v = (id) => { const e = document.getElementById(id); return Math.max(0, Math.floor(Number(e && e.value) || 0)); };
-    return { TWK: v('ujian-n-twk'), TIU: v('ujian-n-tiu'), TKP: v('ujian-n-tkp') };
-  },
-  _terpilihSkd() {
-    const n = { TWK: 0, TIU: 0, TKP: 0 };
-    document.querySelectorAll('.chk-soal-ujian:checked').forEach(c => { if (n[c.dataset.st] !== undefined) n[c.dataset.st]++; });
-    return n;
-  },
-  // Ujian SATU subtes (mis. TIU saja): jumlah subtes lain diisi 0 -> ambang subtes itu ikut 0 dan ambang total = jumlah ambang yang tersisa.
-  // Hanya berjalan saat sebuah subtes BERALIH antara 0 dan bukan-0, supaya ambang buatan/preset formasi tidak tertimpa.
-  ambangDariJumlah_() {
-    const m = Guru._targetSkd(), sblm = Guru._nSebelum || { TWK: 1, TIU: 1, TKP: 1 };
-    const std = { TWK: 65, TIU: 80, TKP: 166 }, idA = { TWK: 'ujian-amb-twk', TIU: 'ujian-amb-tiu', TKP: 'ujian-amb-tkp' };
-    let berubah = false;
-    ['TWK', 'TIU', 'TKP'].forEach(st => {
-      if ((sblm[st] === 0) === (m[st] === 0)) return;
-      const el = document.getElementById(idA[st]); if (!el) return;
-      el.value = m[st] === 0 ? 0 : std[st]; berubah = true;
-    });
-    if (berubah) { const t = document.getElementById('ujian-amb-total'); if (t) t.value = ['twk', 'tiu', 'tkp'].reduce((a, k) => a + (Number((document.getElementById('ujian-amb-' + k) || {}).value) || 0), 0); }
-    Guru._nSebelum = m;
-  },
-  hitungPilihSkd() {
-    const n = Guru._terpilihSkd();
-    const el = document.getElementById('skd-hitung-pilih'); if (el) el.textContent = `— terpilih TWK ${n.TWK} · TIU ${n.TIU} · TKP ${n.TKP} = ${n.TWK + n.TIU + n.TKP} soal`;
-    Guru.renderInfoKurangSkd_(n);
-  },
-  // Keterangan PERMANEN (bukan toast sesaat): diminta vs tersedia di Bank Soal vs terpilih, per subtes.
-  renderInfoKurangSkd_(n) {
-    const box = document.getElementById('skd-kurang-info'); if (!box) return;
-    n = n || Guru._terpilihSkd();
-    const minta = Guru._targetSkd(); const pool = Guru._poolSkd || { TWK: [], TIU: [], TKP: [] };
-    const paket = (document.getElementById('ujian-subkategori') || {}).value || '';
-    const paketTeks = paket.trim() ? ` pada paket “${escapeHtml_(paket.trim())}”` : '';
-    const baris = ['TWK', 'TIU', 'TKP'].map(st => {
-      const ada = (pool[st] || []).length, pilih = n[st], m = minta[st];
-      let kelas = 'ok', ket = '✔ sesuai';
-      if (m > 0 && ada < m) { kelas = 'kurang'; ket = `✖ kurang ${m - ada} soal di Bank Soal${paketTeks}`; }
-      else if (pilih < m) { kelas = 'sedang'; ket = `⚠ baru ${pilih} terpilih, kurang ${m - pilih} — klik “Susun Soal”`; }
-      else if (pilih > m) { kelas = 'lebih'; ket = `ℹ lebih ${pilih - m} dari yang diminta`; }
-      return { st, m, ada, pilih, kelas, ket };
-    });
-    const bermasalah = baris.filter(b => b.kelas === 'kurang' || b.kelas === 'sedang');
-    let h = '';
-    if (bermasalah.length) {
-      h += `<div class="skd-kurang-banner warn"><b>Jumlah soal belum sesuai permintaan.</b> ` + bermasalah.map(b => b.kelas === 'kurang'
-        ? `<b>${b.st}</b> kurang <b>${b.m - b.ada}</b> soal (diminta ${b.m}, tersedia ${b.ada})`
-        : `<b>${b.st}</b> baru terpilih ${b.pilih} dari ${b.m}`).join('; ') +
-        `. Tambahkan soalnya di Bank Soal (kategori ${bermasalah.filter(b => b.kelas === 'kurang').map(b => b.st).join('/') || 'terkait'}) atau kecilkan jumlah yang diminta.</div>`;
-      const ts = Guru._soalTanpaSubtes;
-      if (ts && ts.n > 0) h += `<div class="skd-kurang-banner warn"><b>${ts.n} soal di Bank Soal tidak terhitung</b> karena belum punya subtes TWK/TIU/TKP (mapel: ${ts.kategori.map(escapeHtml_).join(', ')}). Atur subtesnya lewat tombol Ubah pada soal, atau impor ulang dengan kolom Subtes berisi TWK/TIU/TKP.</div>`;
-    } else if (baris.some(b => b.m > 0)) {
-      h += `<div class="skd-kurang-banner ok">✔ Jumlah soal sesuai permintaan: TWK ${n.TWK} · TIU ${n.TIU} · TKP ${n.TKP} = ${n.TWK + n.TIU + n.TKP} soal.</div>`;
-    }
-    h += `<table class="skd-kurang-tbl"><thead><tr><th>Subtes</th><th>Diminta</th><th>Tersedia</th><th>Terpilih</th><th>Keterangan</th></tr></thead><tbody>` +
-      baris.map(b => `<tr class="${b.kelas}"><td><b>${b.st}</b></td><td>${b.m}</td><td>${b.ada}</td><td>${b.pilih}</td><td>${b.ket}</td></tr>`).join('') + '</tbody></table>';
-    box.innerHTML = h;
-  },
-  susunSoalSkd(acak) {
-    const want = { TWK: Number(document.getElementById('ujian-n-twk').value) || 0, TIU: Number(document.getElementById('ujian-n-tiu').value) || 0, TKP: Number(document.getElementById('ujian-n-tkp').value) || 0 };
-    const pilih = new Set();
-    ['TWK', 'TIU', 'TKP'].forEach(st => {
-      let arr = (Guru._poolSkd && Guru._poolSkd[st] || []).map(s => s.id);
-      if (acak) for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
-      arr.slice(0, want[st]).forEach(id => pilih.add(id));
-    });
-    document.querySelectorAll('.chk-soal-ujian').forEach(c => { c.checked = pilih.has(c.value); });
-    Guru.hitungPilihSkd();
-    const kurang = ['TWK', 'TIU', 'TKP'].filter(st => (Guru._poolSkd && Guru._poolSkd[st] || []).length < want[st]);
-    if (kurang.length) toast('Soal ' + kurang.join(', ') + ' di Bank Soal kurang dari jumlah yang diminta; semua yang ada dipakai. Lihat keterangan merah di bawah.', 'error');
-  },
-  terapkanPresetAmbang() {
-    const p = SKD_PRESET[document.getElementById('ujian-formasi').value] || SKD_PRESET.umum;
-    document.getElementById('ujian-amb-twk').value = p.twk; document.getElementById('ujian-amb-tiu').value = p.tiu;
-    document.getElementById('ujian-amb-tkp').value = p.tkp; document.getElementById('ujian-amb-total').value = p.total;
+    const daftar = res.data.filter(s => (s.status || 'aktif') !== 'arsip' || terpilih.includes(s.id));
+    if (daftar.length === 0) { cont.innerHTML = '<p class="subtitle">Tidak ada soal aktif di kategori/sub-kategori ini.</p>'; return; }
+    // idsTerpilih kosong/tidak diisi (ujian baru, atau kategori baru saja
+    // diganti) -> semua soal yang cocok otomatis tercentang, TIDAK perlu
+    // dicentang satu per satu. Ujian yang sedang diubah tetap menghormati
+    // centang yang sudah tersimpan sebelumnya.
+    const autoCentangSemua = !idsTerpilih;
+    cont.innerHTML = daftar.map(s => `
+      <label style="display:flex;gap:.5rem;align-items:flex-start;margin-bottom:.5rem;font-weight:400">
+        <input type="checkbox" class="chk-soal-ujian" value="${s.id}" ${(autoCentangSemua || terpilih.includes(s.id)) ? 'checked' : ''} style="width:auto;margin-top:.2rem">
+        <span>${escapeHtml_(s.pertanyaan).slice(0, 90)} <em style="color:var(--c-muted)">(bobot ${s.bobot})</em></span>
+      </label>`).join('');
   },
 
   pilihSemuaSoalUjian(centang) {
@@ -6266,44 +5681,34 @@ const Guru = {
     return jalankanDenganTombolSibuk('btn-simpan-ujian', 'Menyimpan...', async () => {
       const soalIds = Array.from(document.querySelectorAll('.chk-soal-ujian:checked')).map(c => c.value);
       if (soalIds.length === 0) { toast('Pilih minimal satu soal.', 'error'); return; }
-      { // peringatan bila jumlah soal terpilih kurang dari yang diminta
-        const minta = Guru._targetSkd(), pilih = Guru._terpilihSkd();
-        const kurang = ['TWK', 'TIU', 'TKP'].filter(st => pilih[st] < minta[st]);
-        if (kurang.length) {
-          const lanjut = await Dialog.konfirmasi({
-            judul: 'Jumlah Soal Belum Sesuai', tipe: 'warning', ikon: 'fa-triangle-exclamation',
-            pesan: 'Soal yang dipilih **kurang** dari jumlah yang diminta:\n' +
-              kurang.map(st => `• **${st}**: terpilih ${pilih[st]} dari ${minta[st]} (kurang ${minta[st] - pilih[st]})`).join('\n') +
-              '\n\nPeserta hanya akan mendapat soal yang terpilih. Tambahkan soal di Bank Soal dahulu, atau tetap simpan?',
-            teksYa: 'Tetap Simpan', teksBatal: 'Kembali & Perbaiki'
-          });
-          if (!lanjut) return;
-        }
-      }
-      const targetSkd = Guru._targetSkd();
       const ujian = {
         id: document.getElementById('ujian-id').value || undefined,
         guru_id: state.user.id,
         judul: document.getElementById('ujian-judul').value.trim(),
-        kategori: 'SKD CPNS',
+        kategori: document.getElementById('ujian-kategori').value,
         subkategori: document.getElementById('ujian-subkategori').value.trim(),
         soal_ids: soalIds.join(','),
         durasi_menit: Number(document.getElementById('ujian-durasi').value),
         toleransi_menit: Number(document.getElementById('ujian-toleransi').value),
-        nilai_lulus: Number(document.getElementById('ujian-amb-total').value) || 0,
-        ambang_json: JSON.stringify({ formasi: document.getElementById('ujian-formasi').value, twk: Number(document.getElementById('ujian-amb-twk').value) || 0, tiu: Number(document.getElementById('ujian-amb-tiu').value) || 0, tkp: Number(document.getElementById('ujian-amb-tkp').value) || 0, total: Number(document.getElementById('ujian-amb-total').value) || 0, target: { twk: targetSkd.TWK, tiu: targetSkd.TIU, tkp: targetSkd.TKP }, sumber: (document.getElementById('ujian-sumber') || {}).value || '' }),
+        nilai_lulus: Number(document.getElementById('ujian-kkm').value),
         max_pelanggaran: Number(document.getElementById('ujian-max-pelanggaran').value),
         mulai: document.getElementById('ujian-mulai').value ? new Date(document.getElementById('ujian-mulai').value).toISOString() : '',
         selesai: document.getElementById('ujian-selesai').value ? new Date(document.getElementById('ujian-selesai').value).toISOString() : '',
         acak_soal: document.getElementById('ujian-acak-soal').checked,
         acak_opsi: document.getElementById('ujian-acak-opsi').checked,
-        instruksi_remedial: document.getElementById('ujian-instruksi-remedial').value.trim(),
-        status: 'aktif'
+        instruksi_remedial: document.getElementById('ujian-instruksi-remedial').value.trim()
       };
+      if (!ujian.id) ujian.status = 'aktif'; // ujian baru langsung aktif; saat mengubah, status (aktif/nonaktif) yang sudah diatur guru dipertahankan
       ujian.tampil_detail = document.getElementById('ujian-tampil-detail').checked;
       ujian.tampil_pembahasan = document.getElementById('ujian-tampil-pembahasan').checked;
       if (!ujian.id) ujian.token_kelas = (document.getElementById('ujian-token-awal') || {}).value === 'kunci' ? '[]' : ''; // ujian baru: semua kelas, atau dikunci dulu
       ujian.bukti_orek = document.getElementById('ujian-bukti-orek').value; // '' | 'wajib' | 'opsional'
+      ujian.survei = document.getElementById('ujian-survei').value; // '' | 'auto' | 'karakter' | 'sulingjar'
+      ujian.survei_tampil = document.getElementById('ujian-survei-tampil').checked;
+      ujian.survei_butir = Survei.draftJson(); // '' = pakai butir bawaan; selain itu JSON butir khusus hasil impor Word
+      const hasilPesan = Guru.ambilPesanNilaiUntukSimpan();
+      if (hasilPesan.error) { toast(hasilPesan.error, 'error'); return; }
+      ujian.pesan_nilai = hasilPesan.json;
       if (!ujian.judul) { toast('Judul ujian tidak boleh kosong.', 'error'); return; }
       const res = await api('simpanUjian', { ujian: JSON.stringify(ujian) });
       if (res.ok) {
@@ -6318,7 +5723,7 @@ const Guru = {
     const res = await api('getDaftarUjian', { guruId: state.user.id });
     const sel = document.getElementById(selectId);
     if (!res.ok) return;
-    sel.innerHTML = '<option value="">Pilih ujian...</option>' + res.data.map(u => `<option value="${u.id}">${escapeHtml_(u.judul)}</option>`).join('');
+    sel.innerHTML = '<option value="">Pilih ujian...</option>' + res.data.map(u => `<option value="${u.id}" data-survei="${Survei.jenisUntukUjian(u, state.guru.paketSurvei)}">${escapeHtml_(u.judul)}</option>`).join('');
   },
 
   async muatRekap() {
@@ -6329,6 +5734,9 @@ const Guru = {
     if (!res.ok) return gagalMuat_(cont, 'Gagal memuat.');
     state.guru._rekapAktif = res.data;
     state.guru._rekapBuktiMode = res.buktiMode || '';
+    const optRekap = document.getElementById('pilih-ujian-rekap').selectedOptions[0];
+    if (optRekap && optRekap.dataset.survei) await Survei.gabungKeRekap(ujianId, res.data); // hasil survei di samping nilai tes
+    else { state.guru._rekapSurveiJenis = ''; state.guru._rekapSurveiSet = null; }
     isiOpsiKelas_('kelas-rekap', kelasUnikDari_(res.data));
     Guru.renderTabelRekap_();
     return true;
@@ -6353,14 +5761,6 @@ const Guru = {
     return '<span style="color:var(--c-muted)">—</span>';
   },
 
-  // Sel TWK / TIU / TKP / Total: skor, berwarna hijau bila memenuhi ambang batas subtes, merah bila belum.
-  selSkdRekap_(r) {
-    const s = r.skd;
-    if (!s) return `<td colspan="3" style="color:var(--c-muted)">—</td><td><strong>${r.nilai}</strong></td>`;
-    const sel = (v, ok, amb) => `<td><span class="skd-sk ${ok ? 'ok' : 'no'}" title="${amb > 0 ? 'Ambang batas ' + amb : 'Tidak disyaratkan'}">${v}</span></td>`;
-    return sel(s.twk, s.ok.twk, s.ambang.twk) + sel(s.tiu, s.ok.tiu, s.ambang.tiu) + sel(s.tkp, s.ok.tkp, s.ambang.tkp) + `<td><span class="skd-sk ${s.ok.total ? 'ok' : 'no'}" title="Ambang batas total ${s.ambang.total}"><strong>${s.total}</strong></span></td>`;
-  },
-
   renderTabelRekap_() {
     const cont = document.getElementById('tabel-rekap');
     // Ingat centang yang sudah dipilih guru supaya tidak hilang saat data disegarkan.
@@ -6376,13 +5776,15 @@ const Guru = {
     data.forEach(r => { hitungKat[kategoriNilai_(r.nilai).kode]++; });
     tampilkanInfoFilter_('kelas-rekap-info', data.length, semua.length, (rata === null ? '' : 'rata-rata nilai ' + (Math.round(rata * 10) / 10) + ' • ') + jmlLulus + ' lulus, ' + (data.length - jmlLulus) + ' remedial • Istimewa ' + hitungKat.istimewa + ', Baik ' + hitungKat.baik + ', Memadai ' + hitungKat.memadai + ', Kurang ' + hitungKat.kurang);
     if (data.length === 0) { cont.innerHTML = '<p class="subtitle">Tidak ada siswa yang cocok dengan kelas/pencarian ini.</p>'; return; }
+    const adaSurvei = !!state.guru._rekapSurveiJenis;
     const adaKolomBukti = !!state.guru._rekapBuktiMode || semua.some(r => Array.isArray(r.bukti) && r.bukti.length);
-    cont.innerHTML = `<table class="ledger"><thead><tr><th style="width:2rem"><input type="checkbox" id="rekap-pilih-semua" title="Pilih semua yang tampil" onchange="Guru.pilihSemuaRekap(this.checked)"></th><th>Nama</th><th>Kelas</th><th title="Tes Wawasan Kebangsaan">TWK</th><th title="Tes Intelegensia Umum">TIU</th><th title="Tes Karakteristik Pribadi">TKP</th><th>Total</th>${adaKolomBukti ? '<th>Bukti Orak-Orik</th>' : ''}<th>Status</th><th>Pelanggaran</th><th>Selesai</th><th>Durasi</th><th></th></tr></thead><tbody>` +
+    cont.innerHTML = `<table class="ledger"><thead><tr><th style="width:2rem"><input type="checkbox" id="rekap-pilih-semua" title="Pilih semua yang tampil" onchange="Guru.pilihSemuaRekap(this.checked)"></th><th>Nama</th><th>Kelas</th><th>Nilai</th><th>Kategori</th>${adaSurvei ? `<th title="Nilai survei 0-100 (jawaban terbaik = skor 4) — klik Detail Jawaban untuk pembahasan">${state.guru._rekapSurveiJenis === 'karakter' ? 'Nilai Survei Karakter' : 'Nilai Sulingjar'}</th>` : ''}${adaKolomBukti ? '<th>Bukti Orak-Orik</th>' : ''}<th>Status</th><th>Pelanggaran</th><th>Selesai</th><th>Durasi</th><th></th></tr></thead><tbody>` +
       data.map(r => `<tr>
         <td><input type="checkbox" class="rekap-cek" value="${escapeHtml_(r.sesiId || '')}" ${r.sesiId ? '' : 'disabled'} ${r.sesiId && tercentang.has(String(r.sesiId)) ? 'checked' : ''}></td>
-        <td>${escapeHtml_(r.nama)}</td><td>${escapeHtml_(r.kelas)}</td>${Guru.selSkdRekap_(r)}
+        <td>${escapeHtml_(r.nama)}</td><td>${escapeHtml_(r.kelas)}</td><td><strong>${r.nilai}</strong></td><td>${badgeKategori_(r.nilai)}</td>
+        ${adaSurvei ? `<td>${Survei.selRekap(r)}</td>` : ''}
         ${adaKolomBukti ? `<td>${Guru.selBuktiRekap_(r)}</td>` : ''}
-        <td><span class="badge ${String(r.lulus) === 'true' ? 'ok' : 'no'}">${String(r.lulus) === 'true' ? 'Memenuhi Syarat' : 'Belum Memenuhi'}</span></td>
+        <td><span class="badge ${String(r.lulus) === 'true' ? 'ok' : 'no'}">${String(r.lulus) === 'true' ? 'Lulus' : 'Remedial'}</span></td>
         <td>${r.pelanggaran || 0} ${r.status === 'diblokir' ? '<span class="badge warn">Diblokir</span>' : ''}</td>
         <td style="font-size:.8rem">${formatTanggal(r.selesai)}</td>
         <td style="font-size:.8rem;white-space:nowrap">${formatDurasi_(hitungDurasiDetik_(r.mulai, r.selesai))}</td>
@@ -6832,8 +6234,11 @@ const Guru = {
       return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
     };
     const buatSheet = (arr, denganUjian) => {
-      const headers = ['No'].concat(denganUjian ? ['Ujian'] : [], ['Nama', 'Kelas', 'TWK', 'TIU', 'TKP', 'Total', 'Status SKD', 'Pelanggaran', 'Mulai', 'Selesai', 'Durasi Pengerjaan', 'Durasi (menit)', 'Foto Bukti Orak-Orik']);
-      const adaSv = false;
+      const headers = ['No'].concat(denganUjian ? ['Ujian'] : [], ['Nama', 'Kelas', 'Nilai', 'Keterangan', 'Kategori', 'Pelanggaran', 'Mulai', 'Selesai', 'Durasi Pengerjaan', 'Durasi (menit)', 'Foto Bukti Orak-Orik']);
+      // Hasil survei (Survei Karakter / Sulingjar) di samping nilai tes — hanya untuk ekspor satu ujian yang memakai survei
+      const svSet = !denganUjian ? state.guru._rekapSurveiSet : null;
+      const adaSv = !!svSet && arr.some(r => r.survei);
+      if (adaSv) svSet.dim.forEach(d => headers.push('Nilai ' + d[1])), headers.push(svSet.jenis === 'karakter' ? 'Nilai Survei Karakter' : 'Nilai Sulingjar (rata-rata)', 'Kategori Survei', 'Nilai Kesungguhan Survei', 'Kualitas Pengisian Survei');
       const rows = urut(arr, denganUjian).map((r, i) => {
         const lulus = r.lulus === true || String(r.lulus).toLowerCase() === 'true';
         const lulusSalah = r.lulus === false || String(r.lulus).toLowerCase() === 'false';
@@ -6841,17 +6246,22 @@ const Guru = {
         const nilai = r.nilai === '' || r.nilai === null || r.nilai === undefined ? '' : Number(r.nilai);
         return [i + 1].concat(denganUjian ? [r._ujian || ''] : [], [
           r.nama || '', r.kelas || '',
-          r.skd ? r.skd.twk : '', r.skd ? r.skd.tiu : '', r.skd ? r.skd.tkp : '', isNaN(nilai) ? r.nilai : nilai,
-          lulus ? 'Memenuhi Syarat' : (lulusSalah ? 'Belum Memenuhi' : '-'),
+          isNaN(nilai) ? r.nilai : nilai,
+          lulus ? 'Lulus' : (lulusSalah ? 'Remedial' : '-'),
+          isNaN(nilai) ? '-' : labelKategori_(nilai),
           Number(r.pelanggaran) || 0,
           fmtWaktu(r.mulai), fmtWaktu(r.selesai),
           detik === null ? '-' : formatDurasi_(detik),
           detik === null ? '' : Math.round(detik / 6) / 10,
           Array.isArray(r.bukti) ? r.bukti.length : 0
-        ]);
+        ], adaSv ? (() => {
+          const x = Survei.ringkasSurvei(r);
+          if (!x) return svSet.dim.map(() => '').concat(['', 'Belum mengisi', '', '']);
+          return svSet.dim.map(d => x.h.dim[d[0]].indeks).concat([x.nilai, x.kat.label, x.kes === null ? '' : x.kes, x.baik ? 'Baik' : 'Perlu dicek']);
+        })() : []);
       });
       const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-      ws['!cols'] = (denganUjian ? [5, 28] : [5]).concat([30, 10, 8, 8, 8, 8, 16, 12, 18, 18, 20, 14, 14]).map(w => ({ wch: w }));
+      ws['!cols'] = (denganUjian ? [5, 28] : [5]).concat([30, 10, 8, 12, 12, 12, 18, 18, 20, 14, 14], adaSv ? svSet.dim.map(() => 16).concat([16, 16, 20, 18]) : []).map(w => ({ wch: w }));
       ws['!freeze'] = { xSplit: 0, ySplit: 1 };
       ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(rows.length, 1), c: headers.length - 1 } }) };
       return ws;
@@ -7236,9 +6646,9 @@ const Guru = {
     if (saringBlokir && data.length === 0) { cont.innerHTML = '<p class="subtitle">Tidak ada akun siswa yang diblokir' + (filterKelas ? ` di kelas "${escapeHtml_(filterKelas)}"` : '') + '.</p>'; return; }
     if (data.length === 0) { cont.innerHTML = `<p class="subtitle">Tidak ada siswa yang cocok${filterKelas ? ` di kelas "${escapeHtml_(filterKelas)}"` : ''} dengan pencarian ini.</p>`; return; }
     cont.innerHTML = (jmlBlokir ? `<p class="subtitle" style="margin-bottom:.6rem">🚫 <strong>${jmlBlokir}</strong> akun siswa sedang diblokir (tidak bisa mengikuti kuis).</p>` : '') +
-      `<table class="ledger"><thead><tr><th>Username</th><th>Password</th><th>Nama</th><th>Kelas</th><th>Status</th><th></th></tr></thead><tbody>` +
+      `<table class="ledger"><thead><tr><th>Username</th><th>Password</th><th>Nama</th><th>NISN</th><th>Kelas</th><th>Status</th><th></th></tr></thead><tbody>` +
       data.map(s => `<tr>
-        <td>${escapeHtml_(s.username)}</td><td>${escapeHtml_(s.password)}</td><td>${escapeHtml_(s.nama)}</td><td>${escapeHtml_(s.kelas)}</td>
+        <td>${escapeHtml_(s.username)}</td><td>${escapeHtml_(s.password)}</td><td>${escapeHtml_(s.nama)}</td><td>${escapeHtml_(s.nisn || '')}</td><td>${escapeHtml_(s.kelas)}</td>
         <td><span class="badge ${s.online ? 'ok' : 'no'}">${s.online ? 'Ada sesi aktif' : 'Tidak ada sesi'}</span>
           ${s.blokir ? `<br><span class="badge no" title="${escapeHtml_(s.blokirAlasan || 'Tanpa alasan')}">🚫 Diblokir</span>${s.blokirAlasan ? `<div style="font-size:.78rem;color:var(--c-muted);margin-top:.2rem">${escapeHtml_(s.blokirAlasan)}</div>` : ''}` : ''}</td>
         <td class="aksi">
@@ -7298,9 +6708,10 @@ const Guru = {
       password: document.getElementById('siswa-edit-password').value.trim(),
       nama: document.getElementById('siswa-edit-nama').value.trim(),
       kelas: document.getElementById('siswa-edit-kelas').value.trim(),
+      nisn: document.getElementById('siswa-edit-nisn').value.trim(),
       jenis_kelamin: document.getElementById('siswa-edit-jk').value,
       tempat_lahir: document.getElementById('siswa-edit-tempat').value.trim(),
-      tanggal_lahir: Skd.isoTgl(document.getElementById('siswa-edit-tgl').value)
+      tanggal_lahir: Anbk.isoTgl(document.getElementById('siswa-edit-tgl').value)
     };
     if (!siswa.username || !siswa.password || !siswa.nama) { toast('Username, password, dan nama wajib diisi.', 'error'); return; }
     const res = await api('updateSiswa', { siswa: JSON.stringify(siswa) });
@@ -7464,10 +6875,10 @@ const Guru = {
       const username = usernameManual || buatUsernameDariNama(nama, (state.guru.daftarSiswa || []).map(s => s.username));
       const password = document.getElementById('siswa-manual-password').value.trim() || buatPasswordAcak();
       const kelas = document.getElementById('siswa-manual-kelas').value.trim();
-      const res = await api('importSiswa', { siswaList: JSON.stringify([{ username, password, nama, kelas, jenis_kelamin: document.getElementById('siswa-manual-jk').value, tempat_lahir: document.getElementById('siswa-manual-tempat').value.trim(), tanggal_lahir: Skd.isoTgl(document.getElementById('siswa-manual-tgl').value) }]) });
+      const res = await api('importSiswa', { siswaList: JSON.stringify([{ username, password, nama, kelas, nisn: document.getElementById('siswa-manual-nisn').value.trim(), jenis_kelamin: document.getElementById('siswa-manual-jk').value, tempat_lahir: document.getElementById('siswa-manual-tempat').value.trim(), tanggal_lahir: Anbk.isoTgl(document.getElementById('siswa-manual-tgl').value) }]) });
       if (res.ok) {
         toast('Siswa "' + nama + '" berhasil ditambahkan (username: ' + username + ', password: ' + password + ').', 'success');
-        ['siswa-manual-username', 'siswa-manual-password', 'siswa-manual-nama', 'siswa-manual-tempat', 'siswa-manual-tgl'].forEach(id => document.getElementById(id).value = '');
+        ['siswa-manual-username', 'siswa-manual-password', 'siswa-manual-nama', 'siswa-manual-nisn', 'siswa-manual-tempat', 'siswa-manual-tgl'].forEach(id => document.getElementById(id).value = '');
         Guru.muatDaftarSiswa();
       } else toast('Gagal menambahkan siswa: ' + res.error, 'error');
     });
@@ -7605,60 +7016,18 @@ const Guru = {
   // Kolom sama persis dgn template Word (lihat Guru.unduhTemplateSoalDocx &
   // barisTabelJadiSoal_) supaya guru cukup belajar 1 format saja utk kedua jenis
   // file. Baris pertama sheet = header (dibaca berdasarkan nama, bebas urutan).
-  // Gambar tempelan di Excel -> diunggah, lalu ditulis ke sel yang bersangkutan:
-  //   kolom Gambar -> alamat gambar | kolom Opsi A-H -> "gambar:ALAMAT" (| teks bila sel juga berisi teks) | Pertanyaan/Pembahasan -> <img> di akhir teks
-  async sisipkanGambarTempelXlsx_(data, sheet, rowsSemua, peringatan) {
-    let daftar = []; const info = {};
-    try { daftar = await bacaGambarXlsx_(data, info); } catch (err) { console.warn('Gambar Excel tak terbaca', err); if (peringatan) peringatan.push('Gambar yang ditempel di Excel tidak dapat dibaca (' + (err && err.message || err) + '). Soal lain tetap diimpor.'); return rowsSemua; }
-    if (info.tidakDidukung && peringatan) peringatan.push(info.tidakDidukung + ' gambar di Excel berformat EMF/WMF/lainnya yang tidak didukung peramban — simpan ulang sebagai PNG/JPG lalu tempel kembali.');
-    if (!daftar.length) return rowsSemua;
-    const rng = XLSX.utils.decode_range(sheet['!ref'] || 'A1'); const r0 = rng.s.r, c0 = rng.s.c;
-    const hr = rowsSemua.findIndex(r => r.some(c => String(c || '').trim())); if (hr < 0) return rowsSemua;
-    const kunciKol = (rowsSemua[hr] || []).map(kunciHeader_);
-    // unggah tiap gambar unik SEKALI
-    const unik = new Map(), daftarUnggah = [];
-    daftar.forEach(g => { const k = g.mime + '|' + g.base64; if (!unik.has(k)) { unik.set(k, daftarUnggah.length); daftarUnggah.push(g); } g.unikIdx = unik.get(k); });
-    toast(`Mengunggah ${daftarUnggah.length} gambar dari Excel...`);
-    let selesai = 0, gagal = 0;
-    const urlUnik = await jalankanParalel_(daftarUnggah, 4, async (g, i) => {
-      const kecil = await perkecilGambar_({ mimeType: g.mime, base64: g.base64, ekstensi: (g.mime.split('/')[1] || 'png') });
-      const res = await api('uploadGambar', { base64: kecil.base64, filename: `soal-xlsx-${i + 1}.${kecil.ekstensi}`, mimeType: kecil.mimeType });
-      selesai++; if (daftarUnggah.length >= 6 && selesai % 5 === 0) toast(`Gambar terunggah ${selesai}/${daftarUnggah.length}...`);
-      if (!res.ok) gagal++; return res.ok ? res.url : null;
-    });
-    if (gagal && peringatan) peringatan.push(gagal + ' gambar dari Excel gagal diunggah (cek koneksi lalu impor ulang).');
-    let terpakai = 0; const sudah = new Set();
-    daftar.forEach(g => {
-      const url = urlUnik[g.unikIdx]; if (!url) return;
-      const ri = g.row - r0, ci = g.col - c0; const nama = kunciKol[ci] || '';
-      const sel = XLSX.utils.encode_cell({ r: g.row, c: g.col });
-      if (ri <= hr || ri >= rowsSemua.length + 200) return; // di baris header / di luar tabel
-      const jenis = nama === 'gambar' ? 'gambar' : /^opsi[a-h]$/.test(nama) ? 'opsi' : (nama === 'pertanyaan' || nama === 'pembahasan') ? 'teks' : '';
-      if (!jenis) { if (peringatan) peringatan.push(`Gambar di sel ${sel} berada di kolom yang tidak dikenali ("${nama || 'tanpa judul'}") — dilewati. Tempel di kolom Gambar, Opsi A–H, Pertanyaan, atau Pembahasan.`); return; }
-      const kunciSel = ri + ':' + ci;
-      if (jenis !== 'teks' && sudah.has(kunciSel)) { if (peringatan) peringatan.push(`Sel ${sel} berisi lebih dari satu gambar — hanya yang pertama dipakai.`); return; }
-      sudah.add(kunciSel);
-      while (rowsSemua.length <= ri) rowsSemua.push([]);
-      const baris = rowsSemua[ri]; while (baris.length <= ci) baris.push('');
-      const lama = String(baris[ci] == null ? '' : baris[ci]).trim();
-      if (jenis === 'gambar') baris[ci] = url;
-      else if (jenis === 'opsi') baris[ci] = 'gambar:' + url + (lama ? ' | ' + lama : '');
-      else baris[ci] = (lama ? escapeHtml_(lama).replace(/\r?\n/g, '<br>') + '<br>' : '') + `<img src="${escapeHtml_(url)}" alt="">`;
-      terpakai++;
-    });
-    if (terpakai) toast(`${terpakai} gambar tempelan dari Excel dipasang ke sel-nya.`, 'success');
-    return rowsSemua;
-  },
-  async unduhTemplateSoal() {
-    try { await muatPustaka_('xlsx'); } catch (e) { toast(e.message, 'error'); return; }
-    const ws = XLSX.utils.aoa_to_sheet([SKD_TEMPLATE_HEADERS_, ...SKD_TEMPLATE_ROWS_]);
-    ws['!cols'] = [10, 18, 11, 60, 14, 28, 28, 28, 28, 28, 12, 8, 11, 44].map(w => ({ wch: w }));
-    const wp = XLSX.utils.aoa_to_sheet(PETUNJUK_RUMUS_ROWS_);
-    wp['!cols'] = [46, 52, 52].map(w => ({ wch: w }));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Template');            // sheet PERTAMA = yang dibaca saat impor
-    XLSX.utils.book_append_sheet(wb, wp, 'Petunjuk');             // sheet kedua hanya bacaan
-    XLSX.writeFile(wb, 'Template_Import_Soal_SKD.xlsx');
+  unduhTemplateSoal() {
+    unduhXlsx('Template_Import_Soal_CBT.xlsx',
+      ['Kategori', 'Topik', 'Tipe', 'Pertanyaan', 'Gambar', 'Opsi A', 'Opsi B', 'Opsi C', 'Opsi D', 'Opsi E', 'Kunci', 'Bobot', 'Kesulitan', 'Pembahasan'],
+      [
+        ['', 'Sejarah Indonesia', 'PG', 'Siapakah Presiden Indonesia pada tahun 1999?', '', 'Soekarno', 'Soeharto', 'B. J. Habibi', 'Abdurrahman Wahid', '', 'C', '10', 'Sedang', 'Contoh pembahasan: tulis alasan jawaban yang benar dan penjelasan singkatnya di sini.'],
+        ['', 'Biologi', 'PGK', 'Manakah yang termasuk hewan mamalia? (kunci boleh lebih dari 1, pisah koma)', '', 'Paus', 'Ular', 'Kelelawar', 'Buaya', '', 'A,C', '10', 'Sedang', ''],
+        ['', 'Geografi', 'BS', 'Indonesia terletak di antara dua benua, yaitu Asia dan Australia.', '', 'Benar', 'Salah', '', '', '', 'Benar', '5', 'Mudah', ''],
+        ['', 'Biologi', 'Essay', 'Jelaskan proses terjadinya fotosintesis pada tumbuhan.', '', '', '', '', '', '', 'fotosintesis, klorofil, karbon dioksida', '15', 'Sedang', ''],
+        ['', 'Geografi', 'Jodohkan', 'Jodohkan negara dengan ibu kotanya.', '', 'Indonesia = Jakarta', 'Jepang = Tokyo', 'Prancis = Paris', '', '', '', '10', 'Sedang', ''],
+        ['', 'Matematika', 'Kategori', 'Diketahui x = 4 dan y = 3. Tentukan Benar atau Salah untuk setiap pernyataan berikut!', '', 'x + y = 7 | Benar', 'x × y = 12 | Benar', 'x - y = 2 | Salah', '2x + y = 10 | Salah', '', '', '10', 'Sedang', ''],
+        ['', '', '', '(tambahkan baris baru di bawah sini, ikuti pola di atas)', '', '', '', '', '', '', '', '', '', '']
+      ]);
   },
 
   // ---------------- TEMA & TAMPILAN ----------------
@@ -8089,8 +7458,11 @@ function labelTipe(t) {
 // Urutan & label tab tipe soal dipakai di halaman "Kelola Soal" (grid mapel) —
 // lihat Guru.gantiTipeTabKelola & render tab di UI.htmlTipeTabs.
 const TIPE_SOAL_TAB = [
-  { tipe: 'pilihan_ganda', label: 'Pilihan Ganda', sub: 'TWK / TIU — BENAR = 5' },
-  { tipe: 'tkp', label: 'TKP', sub: 'SKOR 1–5 PER OPSI' }
+  { tipe: 'pilihan_ganda', label: 'PG Biasa', sub: 'SINGLE CHOICE' },
+  { tipe: 'checkbox', label: 'PG Kompleks', sub: 'MULTI SELECT' },
+  { tipe: 'benar_salah', label: 'Benar/Salah', sub: 'PERNYATAAN' },
+  { tipe: 'menjodohkan', label: 'Jodohkan', sub: 'MATCHING' },
+  { tipe: 'uraian', label: 'Essay', sub: 'ISIAN SINGKAT' }
 ];
 function labelKesulitan(k) {
   return { mudah: 'Mudah', sedang: 'Sedang', sulit: 'Sulit' }[k] || 'Sedang';
@@ -8215,7 +7587,7 @@ const Siswa = {
     if (!res.ok) { toast(res.error, 'error'); return; }
 
     // Pemulihan: siswa sudah selesai tapi bukti orak-orik WAJIB belum terunggah (halaman sempat tertutup).
-    if (res.perluBukti) {
+    if (res.perluBukti || res.perluSurvei) {
       state.sesiId = res.sesiId;
       state.submitting = true;
       if (res.perluBukti) await BuktiUI.buka({ mode: res.buktiOrek, sesiId: res.sesiId, judul: res.judul || state.ujian.judul, pemulihan: true, nilai: res.nilai, lulus: res.lulus, ujianId: state.ujian.id });
@@ -8283,7 +7655,7 @@ const Siswa = {
 // Tersimpan per perangkat (localStorage) supaya tidak perlu diatur ulang tiap soal.
 // ============================================================================
 const SkalaSoal = {
-  tingkat: [0.85, 1, 1.15, 1.3, 1.5, 1.75],
+  tingkat: [0.85, 1, 1.2, 1.4, 1.7],
   idx: 1,
   init() {
     try { const v = parseInt(localStorage.getItem('cbt_skala_soal'), 10); if (v >= 0 && v < SkalaSoal.tingkat.length) SkalaSoal.idx = v; } catch (e) {}
@@ -9609,7 +8981,7 @@ const ExamEngine = {
     }
   },
 
-  tutupDetailJawaban() { UI.tampilkan('hasil-skd-screen'); },
+  tutupDetailJawaban() { UI.tampilkan('hasil-screen'); },
 
   gantiFilterDetail(f) {
     ExamEngine.detailFilter = f;
@@ -9641,16 +9013,15 @@ const ExamEngine = {
     const label = { benar: 'Benar', salah: 'Salah', sebagian: 'Sebagian benar', kosong: 'Tidak dijawab', manual: G ? 'Perlu dikoreksi' : 'Dikoreksi guru' }[it.status] || it.status;
     const opsiObj = (o) => (o && typeof o === 'object') ? o : { teks: o || '', gambar: '' };
     let isi = '';
-    if (it.tipe === 'pilihan_ganda' || it.tipe === 'benar_salah' || it.tipe === 'checkbox' || it.tipe === 'tkp') {
+    if (it.tipe === 'pilihan_ganda' || it.tipe === 'benar_salah' || it.tipe === 'checkbox') {
       const dipilih = it.jawaban === null ? [] : (Array.isArray(it.jawaban) ? it.jawaban.map(Number) : [Number(it.jawaban)]);
       const kunci = it.kunciTampil || [];
-      isi += '<div class="opsi-list' + kelasOpsiGambar_(it.opsi) + '">' + (it.opsi || []).map((o, i) => {
+      isi += '<div class="opsi-list">' + (it.opsi || []).map((o, i) => {
         const item = opsiObj(o);
         const benar = kunci.indexOf(i) !== -1;
         const pilih = dipilih.indexOf(i) !== -1;
         const kelas = benar ? 'dj-benar' : (pilih ? 'dj-salah' : '');
-        let tag = benar && pilih ? (G ? 'Dipilih siswa · Kunci' : 'Jawaban Anda · Kunci') : (benar ? 'Kunci jawaban' : (pilih ? (G ? 'Dipilih siswa' : 'Jawaban Anda') : ''));
-        if (it.tipe === 'tkp' && it.skorOpsi) tag = (tag ? tag + ' · ' : '') + 'Skor ' + it.skorOpsi[i];
+        const tag = benar && pilih ? (G ? 'Dipilih siswa · Kunci' : 'Jawaban Anda · Kunci') : (benar ? 'Kunci jawaban' : (pilih ? (G ? 'Dipilih siswa' : 'Jawaban Anda') : ''));
         return `<div class="opsi-item opsi-readonly dj-opsi ${kelas}">
           <span class="opsi-huruf">${String.fromCharCode(65 + i)}</span>
           <span class="opsi-konten">${kontenSoalHtml(item.teks)}${item.gambar ? tagGambarAman_(item.gambar, 'opsi-gambar-tampil', 'Gambar opsi') : ''}</span>
@@ -9709,7 +9080,7 @@ const ExamEngine = {
 
   tampilkanHasil(nilai, lulus, judul) {
     KumpulUI.sembunyikanSemua();
-    UI.tampilkan('hasil-skd-screen');
+    UI.tampilkan('hasil-screen');
     document.getElementById('hasil-judul-ujian').textContent = judul;
     document.getElementById('hasil-nilai').textContent = nilai;
     const statusEl = document.getElementById('hasil-status');
@@ -10076,20 +9447,23 @@ document.addEventListener('focusout', (ev) => {
   const ed = ev.target && ev.target.closest ? ev.target.closest('.rich-editable') : null;
   if (!ed) return;
   const salin = ed.cloneNode(true);
-  salin.querySelectorAll('.katex, .katex-display').forEach(k => k.remove());
-  if (/\$[^$\n]+\$|\\\(.+?\\\)|\\\[.+?\\\]/.test(salin.textContent)) rtRenderUlang_(ed);
+  salin.querySelectorAll('.katex').forEach(k => k.remove());
+  if (/\$[^$\n]+\$/.test(salin.textContent)) rtRenderUlang_(ed);
 });
 // Klik 2x pada rumus di kotak editor -> ubah rumusnya (LaTeX).
 document.addEventListener('dblclick', async (ev) => {
-  const k = ev.target && ev.target.closest ? ev.target.closest('.rich-editable .katex') : null; // juga mencakup rumus blok (.katex di dalam .katex-display)
+  const k = ev.target && ev.target.closest ? ev.target.closest('.rich-editable .katex') : null;
   if (!k) return;
   const ed = k.closest('.rich-editable');
-  const disp = k.closest('.katex-display'); const target = disp || k;
   const ann = k.querySelector('annotation[encoding="application/x-tex"]');
-  const r = await UI.dialogRumus({ judul: 'Ubah Rumus', nilai: ann ? ann.textContent : '', blok: !!disp, bisaHapus: true, teksYa: 'Simpan Rumus' });
-  if (!r || !target.isConnected) return;
-  const tex = (r.tex || '').trim();
-  if (r.hapus || !tex) target.remove(); else target.replaceWith(document.createTextNode(r.blok ? '$$' + tex + '$$' : '$' + tex + '$'));
+  const baru = await Dialog.input({
+    judul: 'Ubah Rumus', ikon: 'fa-square-root-variable',
+    pesan: 'Ubah rumus dalam format **LaTeX**. Kosongkan lalu simpan untuk menghapus rumus.',
+    label: 'Rumus (LaTeX)', nilai: ann ? ann.textContent : '', teksYa: 'Simpan Rumus'
+  });
+  if (baru !== null && !k.isConnected) return;
+  if (baru === null) return;
+  if (!baru.trim()) k.remove(); else k.replaceWith(document.createTextNode('$' + baru.trim() + '$'));
   rtRenderUlang_(ed);
 });
 
